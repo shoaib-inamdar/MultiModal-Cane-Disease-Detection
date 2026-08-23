@@ -29,21 +29,21 @@ jobs:
         run: uv sync --extra dev
 
       - name: 🎨 Check code formatting (ruff)
-        run: uv run ruff format --check src/ tests/
+        run: uv run ruff format --check src/ tests/ --exclude .venv
 
       - name: 🔍 Lint (ruff)
-        run: uv run ruff check src/ tests/
+        run: uv run ruff check src/ tests/ --exclude .venv
 
       - name: 🏷️ Type check (mypy)
-        run: uv run mypy src/
-        continue-on-error: true  # Don't fail CI on type errors during early development
+        run: uv run mypy src/ --exclude .venv
+        continue-on-error: true  
 
       - name: 🧪 Run unit tests
         run: uv run pytest tests/unit/ -v --cov=src --cov-report=xml
 
       - name: 🔗 Run integration tests
         run: uv run pytest tests/integration/ -v
-        continue-on-error: true  # Integration tests may need dataset
+        continue-on-error: true  
 
       - name: 📊 Upload coverage to Codecov
         uses: codecov/codecov-action@v4
