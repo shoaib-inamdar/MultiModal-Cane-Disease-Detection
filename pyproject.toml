@@ -1,0 +1,85 @@
+[project]
+name = "multimodal-cane-disease-detection"
+version = "0.1.0"
+description = "Novel Lightweight Explainable Uncertainty-Aware Multimodal Hybrid Vision Transformer for Early-Stage Sugarcane Disease Detection Under Real-Field Conditions"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Shoaib Inamdar" },
+]
+
+dependencies = [
+    # Deep Learning Core
+    "torch>=2.1.0",
+    "torchvision>=0.16.0",
+    "timm>=0.9.0",
+
+    # Image Processing
+    "Pillow>=10.0.0",
+    "opencv-python>=4.8.0",
+    "albumentations>=1.3.0",
+
+    # Data & Science
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "scikit-learn>=1.3.0",
+    "scipy>=1.11.0",
+
+    # Visualization (for research notebooks & plots)
+    "matplotlib>=3.8.0",
+    "seaborn>=0.13.0",
+
+    # Configuration & Environment
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0.0",
+
+    # Experiment Tracking
+    "wandb>=0.16.0",
+
+    # Utilities
+    "tqdm>=4.66.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    # Testing
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+
+    # Code Quality
+    "ruff>=0.1.0",
+    "mypy>=1.5.0",
+    "pre-commit>=3.5.0",
+
+    # Image Quality (for preprocessing)
+    "imagehash>=4.3.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.mypy]
+python_version = "3.13"
+ignore_missing_imports = true
+strict = false

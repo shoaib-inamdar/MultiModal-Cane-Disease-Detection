@@ -1,0 +1,69 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environment (managed by uv)
+.venv/
+venv/
+env/
+
+# Environment variables — NEVER COMMIT
+.env
+
+# Large files — managed by DVC, not Git
+data/raw/
+data/processed/
+data/splits/
+checkpoints/
+*.pth
+*.pt
+*.onnx
+*.safetensors
+*.bin
+
+# Experiment outputs
+wandb/
+experiments/*/results/*.json
+experiments/*/plots/*.png
+experiments/*/plots/*.pdf
+mlruns/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_meta
+
+# DVC
+.dvc/cache/
+.dvc/tmp/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+.ropeproject/
+
+# Test output
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Logs
+*.log
+logs/
+*.docx
+*.pdf
+synopsis_images/

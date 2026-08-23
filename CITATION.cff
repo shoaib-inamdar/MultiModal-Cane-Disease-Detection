@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+message: "If you use this software in your work, please cite it as below."
+type: software
+title: "SugarcaneAI: Novel Lightweight Explainable Uncertainty-Aware Multimodal Hybrid Vision Transformer for Sugarcane Disease Detection"
+abstract: >
+  A novel multimodal AI framework that fuses high-resolution leaf images with
+  real-time environmental metadata (temperature, relative humidity, soil moisture,
+  rainfall) using Cross-Attention to resolve visual ambiguities in early-stage
+  sugarcane disease detection. The framework includes uncertainty quantification
+  via Monte Carlo Dropout, explainability via Grad-CAM++, and knowledge
+  distillation for edge deployment.
+authors:
+  - family-names: "Inamdar"
+    given-names: "Shoaib"
+    affiliation: "GitHub: shoaib-inamdar"
+keywords:
+  - sugarcane disease detection
+  - multimodal learning
+  - cross-attention fusion
+  - hybrid vision transformer
+  - uncertainty quantification
+  - Monte Carlo dropout
+  - explainable AI
+  - Grad-CAM
+  - knowledge distillation
+  - precision agriculture
+  - environmental metadata
+  - IoT sensors
+repository-code: "https://github.com/shoaib-inamdar/MultiModal-Cane-Disease-Detection"
+license: MIT
+version: "0.1.0"
+date-released: "2026-08-23"
