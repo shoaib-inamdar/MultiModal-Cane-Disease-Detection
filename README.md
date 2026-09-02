@@ -34,12 +34,12 @@
 
 | # | Objective | Core Technique | Status |
 |---|-----------|---------------|--------|
-| **1** | Cross-Attention Multimodal Feature Fusion | Hybrid CNN-ViT + Environmental MLP + Cross-Attention | 🔄 **In Progress** |
+| **1** | Cross-Attention Multimodal Feature Fusion | Pretrained Swin-Tiny + Environmental MLP + Cross-Attention | 🔄 **In Progress** |
 | **2** | Uncertainty Quantification | Monte Carlo Dropout + ECE Calibration | ⏳ Planned |
 | **3** | Maharashtra Multimodal Dataset | Field Survey + DHT22/IoT Sensors + GPS Sync | ⏳ Planned |
 | **4** | Knowledge Distillation (Edge Deployment) | Teacher-Student KL-Divergence, ≥40% FLOPs reduction | ⏳ Planned |
 | **5** | Explainability + Ablation Studies | Grad-CAM++, Score-CAM, Attention Rollout | ⏳ Planned |
-| **6** | Comprehensive Baseline Comparison | CNN-only, sViT-only, standard Hybrid ViT | ⏳ Planned |
+| **6** | Comprehensive Baseline Comparison | Swin-Tiny image-only vs Cross-Attention multimodal | ⏳ Planned |
 
 ---
 
@@ -179,13 +179,33 @@ uv run python scripts/train.py --config configs/obj1_cross_attention.yaml
 
 | Class | Description | Key Environmental Trigger |
 |-------|-------------|--------------------------|
-| `healthy` | No infection | — |
-| `red_rot` | *Colletotrichum falcatum* — red internal discoloration | High humidity (>80%) |
-| `grassy_shoot` | Phytoplasma — excessive tillering, pale shoots | Temperature extremes |
-| `smut` | *Sporisorium scitamineum* — black whip-like growth | Drought stress |
-| `pokkah_boeng` | *Fusarium moniliforme* — top rotting | Warm, humid conditions |
+| `healthy` (0) | No infection | — |
+| `red_rot` (1) | *Colletotrichum falcatum* — red internal discoloration | High humidity (>80%) |
+| `grassy_shoot` (2) | Phytoplasma — excessive tillering, pale shoots | Temperature extremes |
+| `smut` (3) | *Sporisorium scitamineum* — black whip-like growth | Drought stress |
+
+> **Objective 1 scope:** 4 classes only. Severity grading (Grade 0–4) and Pokkah Boeng are added in later objectives.
 
 ---
+
+## 🗃️ Dataset Strategy — 3 Stages
+
+| Stage | Status | Images | Environmental Metadata | Purpose |
+|-------|--------|--------|----------------------|---------|
+| **A — Dummy** | 🔄 Current | `torch.rand(3,224,224)` | Randomly generated values | Test full pipeline immediately |
+| **B — Kaggle Public** | ⏳ Next | Real leaf images (Kaggle) | Still synthetic/fake | Validate visual encoder quality |
+| **C — Real Field** | ⏳ Future (Obj 3) | Maharashtra field photos | Real DHT22 sensor readings | Final research results |
+
+### Stage B Datasets (Kaggle / Mendeley)
+| Dataset | Images | Download |
+|---------|--------|----------|
+| Sugarcane Leaf Disease — Daphal & Koli | 2,569 (Maharashtra) | [Mendeley](https://data.mendeley.com/datasets/9424skmnrk/1) |
+| Sugarcane Leaf Dataset — Thite et al. | 6,748 (9 classes) | [Mendeley](https://data.mendeley.com/datasets/355y629ynj/1) |
+
+> **Stage B note:** Public datasets don't include weather data. Environmental metadata will remain synthetic until Stage C (your own field collection with DHT22 sensors).
+
+---
+
 
 ## 📁 Repository Structure
 
