@@ -402,26 +402,6 @@ uv run pytest tests/unit/test_cross_attention.py -v -s
 
 ---
 
-## 📖 Citing This Work
-
-If you use this research, please cite:
-
-```bibtex
-@phdthesis{valsang2026sugarcaneai,
-  author    = {Valsang, Aarti Basavantappa},
-  title     = {Development of a Novel Lightweight and Explainable Uncertainty-Aware
-               Multimodal Hybrid Vision Transformer Framework for Early-Stage Detection,
-               Contextual Diagnosis, and Severity Grading of Multiple Sugarcane
-               Diseases Under Real-Field Conditions},
-  school    = {D.K.T.E. Society's Textile and Engineering Institute, Ichalkaranji},
-  year      = {2026},
-  advisor   = {Dr. Vivek Vijay Kheradakar},
-  type      = {{Ph.D.} Thesis},
-}
-```
-
----
-
 ## 🤝 Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines. Before submitting a PR, ensure:
