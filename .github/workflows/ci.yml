@@ -39,11 +39,11 @@ jobs:
         continue-on-error: true  
 
       - name: 🧪 Run unit tests
-        run: uv run pytest tests/unit/ -v --cov=src --cov-report=xml
+        run: uv run pytest tests/unit/ -v --tb=short --cov=src --cov-report=xml
 
       - name: 🔗 Run integration tests
-        run: uv run pytest tests/integration/ -v
-        continue-on-error: true  
+        run: uv run pytest tests/integration/ -v --tb=short
+        continue-on-error: true  # No integration tests yet — added in Phase 9
 
       - name: 📊 Upload coverage to Codecov
         uses: codecov/codecov-action@v4
