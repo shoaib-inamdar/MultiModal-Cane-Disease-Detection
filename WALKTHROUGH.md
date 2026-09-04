@@ -1,1031 +1,725 @@
-# 🌾 SugarcaneAI — Complete Build Walkthrough
-## Phase-by-Phase Teaching Guide for Beginners
+# 🌾 SugarcaneAI — Objective 1 Build Walkthrough
+## Phase-by-Phase Teaching Guide
 
-> **Your Role:** You are the builder. I am your guide. I explain; you code.  
-> **Rule:** Read each phase carefully → try it → come back and say **"Phase X done"** → we continue.
-
----
-
-## 📋 Project Overview (What We're Building)
-
-You are building a **Ph.D.-level AI research system** that:
-
-1. Takes a **photo of a sugarcane leaf** + **weather data** (temperature, humidity, etc.)
-2. Uses an AI model to ask: *"Given this weather context, what disease is this leaf showing?"*
-3. Outputs: **disease name + confidence + severity grade (0-4) + uncertainty score**
-
-This is real, novel research. You'll learn PyTorch, transformers, and production software engineering along the way. 🚀
+> **Your Role:** You build. I guide. Read each phase → try it → say **"Phase X done"** → we continue.
 
 ---
 
-## 🗺️ Phase Map (All Phases)
+## 📋 What Objective 1 Builds
 
-| Phase | Name | What You Build |
-|-------|------|---------------|
-| **1** | Setup & Workspace | Folder structure, tools, API keys |
-| **2** | Data Pipeline (Synthetic) | Dataset class, dataloader, augmentation (no real data needed yet!) |
-| **3** | Image Encoder | CNN Backbone + Swin-Transformer |
-| **4** | Metadata Encoder | MLP for weather data |
-| **5** | Cross-Attention Fusion ⭐ | The core research contribution |
-| **6** | Training Loop | Train the model, log to W&B |
-| **7** | Evaluation | F1, ECE, Confusion Matrix |
-| **8** | Testing (pytest) | Unit + Integration tests |
-| **9** | CI/CD | GitHub Actions, pre-commit hooks |
-| **10** | Explainability | Grad-CAM++ heatmaps |
+A working multimodal model that:
+1. Takes a **sugarcane leaf image** + **environmental metadata** [Temperature, Humidity, Soil Moisture, Rainfall]
+2. Fuses them using **Cross-Attention** (your novel contribution)
+3. Outputs one of **4 disease classes**: Healthy, Red Rot, Grassy Shoot, Smut
+
+> ⚠️ Severity grading, MC-Dropout, Explainability, and Knowledge Distillation are **NOT** part of Objective 1. They come in Objectives 2–5.
 
 ---
 
----
+## 🗺️ Phase Map — Objective 1
 
-# 🟢 PHASE 1 — Setup & Workspace
+| Phase | Name | Time Estimate | What You Build |
+|-------|------|--------------|----------------|
+| **1** | Setup & Workspace | ✅ Done | Folders, tools, dependencies |
+| **2** | Dummy Dataset + DataLoader | 2–3 hours | Synthetic dataset class for testing without real data |
+| **3** | Pretrained Visual Backbone | 2–3 hours | Swin-Tiny from `timm` as feature extractor |
+| **4** | Metadata MLP Encoder | 1–2 hours | MLP that converts [T, H, Sm, R] → 256-dim token |
+| **5** | Cross-Attention Fusion ⭐ | 3–4 hours | Core contribution: visual tokens attend to env tokens |
+| **6** | Full Model Assembly | 1–2 hours | Connect backbone → fusion → classifier head |
+| **7** | Training on Colab/Kaggle | 3–4 hours | Train loop + Google Drive checkpoints + W&B |
+| **8** | Evaluation & Baselines | 2–3 hours | F1, Accuracy vs image-only baseline |
+| **9** | Testing (pytest) | 2–3 hours | Unit + integration tests |
+| **10** | Final Cleanup & Docs | 1–2 hours | CI green, README updated, results documented |
 
----
-
-## 🎯 Goal
-
-Set up your entire development environment so that when we write code in Phase 2, everything "just works". A good setup prevents 90% of beginner frustrations.
-
----
-
-## 🤔 Why This Matters
-
-Imagine building a house without a blueprint or tools. You'd be lost. Phase 1 is your blueprint + toolbox. Every professional project starts here. Top open-source repositories like HuggingFace and PyTorch start with clean setups — and so do we.
-
----
-
-## 🪜 Steps
-
-### Step 1.1 — Verify Python Version
-
-Open your terminal (PowerShell on Windows) and check:
-
-```powershell
-python --version
-```
-
-You need **Python 3.10 or higher**. If you see 3.8 or 3.9, you'll need to install 3.10+.
-
-> ⚠️ **Common mistake:** Your workspace's `pyproject.toml` currently says `requires-python = ">=3.14"`. This is a typo — Python 3.14 doesn't exist yet! You'll need to fix this to `">=3.10"`.
-
-**Fix it:** Open `pyproject.toml` and change line 6 to:
-```toml
-requires-python = ">=3.10"
-```
+**Total estimated time: ~20–26 hours of focused work**
 
 ---
 
-### Step 1.2 — Verify uv is Installed
+## 🗃️ Dataset Strategy — 3 Stages
 
-You said you're using `uv`. Check it's working:
+This project uses a progressive dataset approach. You don't need real data to start.
 
-```powershell
-uv --version
-```
+| Stage | When | Images | Environmental Data | Purpose |
+|-------|------|--------|--------------------|---------|
+| **A — Dummy** | Now (Phases 2–7) | `torch.rand(3,224,224)` synthetic tensors | Randomly generated [T, H, Sm, R] | Test pipeline architecture |
+| **B — Kaggle Public** | After Stage A works | Real leaf images from Kaggle | **Still fake/synthetic metadata** | Validate visual encoder |
+| **C — Real Field** | Final (Objective 3) | Your own Maharashtra field photos | Real DHT22 sensor readings synced by timestamp | Final research results |
 
-If you don't see a version number, install it:
+### Stage B — Kaggle Datasets to Use
+When ready to move from dummy to real images:
+1. **[Sugarcane Leaf Disease Dataset](https://www.kaggle.com/datasets/swapnildaphal/sugarcane-leaf-disease-dataset)** — Daphal & Koli (Maharashtra, ~2,569 images)
+2. **[Sugarcane Leaf Dataset](https://data.mendeley.com/datasets/355y629ynj/1)** — Thite et al. (6,748 images, 9 classes)
 
-```powershell
-# Windows (PowerShell)
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
+For Stage B, set `synthetic=False` in `SugarcaneDataset` but keep `synthetic_metadata=True` — real images but fake weather values.
 
-Then restart your terminal.
+> ⚠️ You will NOT have real environmental metadata until Stage C (your own field collection). The model still trains on real images, just with synthetic weather values as a placeholder.
 
-> 💡 **What is uv?** `uv` is like a supercharged version of `pip` — it's written in Rust so it's 10-100x faster. It also manages your virtual environment automatically. Think of it as `pip + virtualenv + pip-tools` combined.
-
----
-
-### Step 1.3 — Create the Project Folder Structure
-
-You need to create all the folders before writing any code. Here's the structure you need for Phase 1 and 2:
-
-```
-MultiModal-Cane-Disease-Detection/   ← (already exists)
-├── src/
-│   ├── __init__.py
-│   ├── data/
-│   │   ├── __init__.py
-│   │   └── preprocessing/
-│   │       └── __init__.py
-│   ├── models/
-│   │   ├── __init__.py
-│   │   ├── backbone/
-│   │   │   └── __init__.py
-│   │   ├── encoders/
-│   │   │   └── __init__.py
-│   │   ├── fusion/
-│   │   │   └── __init__.py
-│   │   └── heads/
-│   │       └── __init__.py
-│   ├── training/
-│   │   └── __init__.py
-│   ├── evaluation/
-│   │   └── __init__.py
-│   └── utils/
-│       └── __init__.py
-├── configs/
-├── tests/
-│   ├── unit/
-│   └── integration/
-├── scripts/
-├── docs/
-│   └── objectives/
-├── experiments/
-│   └── obj1/
-├── notebooks/
-├── data/
-│   ├── raw/
-│   ├── processed/
-│   └── splits/
-├── .github/
-│   └── workflows/
-└── checkpoints/
-```
-
-**How to create folders in PowerShell (Windows):**
-
-```powershell
-# Navigate to your project
-cd "C:\Users\HP\Documents\MultiModal-Cane-Disease-Detection"
-
-# Create all directories at once
-New-Item -ItemType Directory -Force -Path @(
-    "src\data\preprocessing",
-    "src\models\backbone",
-    "src\models\encoders",
-    "src\models\fusion",
-    "src\models\heads",
-    "src\models\baselines",
-    "src\training",
-    "src\evaluation",
-    "src\explainability",
-    "src\utils",
-    "configs\ablation",
-    "configs\baselines",
-    "tests\unit",
-    "tests\integration",
-    "scripts",
-    "docs\objectives",
-    "experiments\obj1\results",
-    "experiments\obj1\plots",
-    "notebooks",
-    "data\raw",
-    "data\processed",
-    "data\splits",
-    "checkpoints",
-    ".github\workflows"
-)
-```
-
----
-
-### Step 1.4 — Add Python Dependencies to pyproject.toml
-
-Open `pyproject.toml` and add the core dependencies. I'll tell you what each one does:
-
-```toml
-[project]
-name = "multimodal-cane-disease-detection"
-version = "0.1.0"
-description = "Novel Lightweight Explainable Uncertainty-Aware Multimodal Hybrid ViT for Sugarcane Disease Detection"
-readme = "README.md"
-requires-python = ">=3.10"
-license = { text = "MIT" }
-
-dependencies = [
-    # Deep Learning Core
-    "torch>=2.1.0",           # PyTorch — the brain of the system
-    "torchvision>=0.16.0",    # PyTorch image utilities
-    "timm>=0.9.0",            # Pretrained model zoo (EfficientNet, Swin)
-
-    # Image Processing
-    "Pillow>=10.0.0",         # Image loading
-    "opencv-python>=4.8.0",   # CLAHE enhancement, image ops
-    "albumentations>=1.3.0",  # Data augmentation
-
-    # Data & Science
-    "numpy>=1.24.0",          # Numerical computing
-    "pandas>=2.0.0",          # Metadata CSV handling
-    "scikit-learn>=1.3.0",    # Metrics, KNN imputation
-
-    # Configuration
-    "pyyaml>=6.0",            # YAML config files
-    "python-dotenv>=1.0.0",   # Load .env API keys
-
-    # Experiment Tracking
-    "wandb>=0.16.0",          # Weights & Biases logging
-
-    # Utilities
-    "tqdm>=4.66.0",           # Progress bars
-    "rich>=13.0.0",           # Beautiful terminal output
-]
-
-[project.optional-dependencies]
-dev = [
-    # Testing
-    "pytest>=7.4.0",
-    "pytest-cov>=4.1.0",
-
-    # Code Quality
-    "ruff>=0.1.0",            # Linter + formatter (replaces black + flake8)
-    "mypy>=1.5.0",            # Type checking
-    "pre-commit>=3.5.0",      # Git hook manager
-
-    # Image Quality (for preprocessing)
-    "imagehash>=4.3.0",       # pHash deduplication
-]
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.ruff]
-line-length = 88
-target-version = "py310"
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "N", "W"]  # Error, Flake8, Isort, Naming, Warning
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-v --tb=short"
-
-[tool.mypy]
-python_version = "3.10"
-ignore_missing_imports = true
-```
-
-> 💡 **Why separate `dev` dependencies?** Core dependencies are needed to RUN the project. Dev dependencies are only needed to DEVELOP it (testing, linting). This keeps the production install lean.
-
----
-
-### Step 1.5 — Install Dependencies with uv
-
-```powershell
-# Install core + dev dependencies
-uv sync --extra dev
-```
-
-This will:
-1. Read your `pyproject.toml`
-2. Create a `.venv` virtual environment automatically
-3. Install all packages
-4. Generate a `uv.lock` file (pinned versions for reproducibility)
-
-> ⚠️ **PyTorch note:** The `torch` package is large (~2GB). Be patient on the first install. Make sure you have a good internet connection.
-
----
-
-### Step 1.6 — Install Arduino IDE
-
-Since your project involves sensors, you'll need Arduino IDE for the hardware side:
-
-1. Go to: https://www.arduino.cc/en/software
-2. Download **Arduino IDE 2.x** (the newer one)
-3. Install it on Windows
-4. Open Arduino IDE and install the following libraries (Tools → Manage Libraries):
-   - `DHT sensor library` by Adafruit (for DHT22)
-   - `Adafruit Unified Sensor` (dependency)
-
-> **Wait — does this project need Arduino?**  
-> Looking at your Synopsis, the actual PhD research uses sensors to COLLECT data (DHT22 for temperature/humidity). But the ML model runs in Python. The Arduino just sends sensor readings to a CSV or database. We'll set up the Python side now and tackle the Arduino hardware connection later in a separate data collection phase.
-
----
-
-### Step 1.7 — Set Up API Keys
-
-Create a `.env.example` file (this goes in your repo — safe to commit):
-
-```bash
-# .env.example — Copy this to .env and fill in your keys
-# NEVER commit .env to Git
-
-# Weights & Biases (free at wandb.ai)
-WANDB_API_KEY=your_wandb_api_key_here
-WANDB_PROJECT=sugarcane-ai-obj1
-WANDB_ENTITY=your_username_here
-
-# OpenWeatherMap (free tier at openweathermap.org)
-OPENWEATHER_API_KEY=your_openweather_api_key_here
-
-# Optional: IBM Weather Company (premium)
-IBM_WEATHER_API_KEY=your_ibm_key_here
-```
-
-Then create your actual `.env` file:
-
-```powershell
-# Copy the template
-Copy-Item .env.example .env
-```
-
-Edit `.env` and fill in real keys.
-
-**Getting API keys (all free):**
-
-| Service | URL | What it's for |
-|---------|-----|---------------|
-| Weights & Biases | https://wandb.ai/authorize | Experiment tracking (sign up, get API key from settings) |
-| OpenWeatherMap | https://openweathermap.org/api | Historical weather data for metadata sync |
-
----
-
-### Step 1.8 — Set Up Pre-commit Hooks
-
-Create `.pre-commit-config.yaml`:
-
+### Stage C Transition
+Replace the metadata CSV path in `configs/obj1_cross_attention.yaml`:
 ```yaml
-# .pre-commit-config.yaml
-repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
-    hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-yaml
-      - id: check-merge-conflict
-      - id: check-added-large-files
-        args: ["--maxkb=500"]         # Block accidental large file commits
-
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.0
-    hooks:
-      - id: ruff                       # Linting
-        args: [--fix]
-      - id: ruff-format                # Formatting
-
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.5.0
-    hooks:
-      - id: mypy
-        additional_dependencies: [types-PyYAML]
-```
-
-Install the hooks:
-
-```powershell
-uv run pre-commit install
-```
-
-From now on, every time you `git commit`, these checks run automatically. They will catch mistakes before they enter the repository.
-
----
-
-### Step 1.9 — Create .gitignore
-
-Create `.gitignore` to prevent accidentally committing sensitive or large files:
-
-```gitignore
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-.Python
-*.egg-info/
-dist/
-build/
-
-# Virtual environment
-.venv/
-venv/
-env/
-
-# Environment variables (NEVER commit this!)
-.env
-
-# Large files (managed by DVC)
-data/raw/
-data/processed/
-data/splits/
-checkpoints/
-*.pth
-*.pt
-*.onnx
-
-# Experiment outputs
-wandb/
-experiments/*/results/*.json
-experiments/*/plots/*.png
-
-# Jupyter
-.ipynb_checkpoints/
-*.ipynb_meta
-
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/settings.json
-.idea/
-*.swp
+data:
+  images_dir: "data/raw/maharashtra_field/"    # ← your real photos
+  metadata_csv: "data/raw/field_metadata.csv"  # ← real DHT22 sensor readings
+  synthetic: false
+  synthetic_metadata: false
 ```
 
 ---
 
-### Step 1.10 — Create conftest.py for Tests
-
-Create `tests/conftest.py`:
-
-```python
-# tests/conftest.py
-# This file contains shared fixtures for all your tests.
-# You will fill in the actual fixtures in Phase 8.
-# For now, just create an empty file.
-```
-
-And `tests/__init__.py`, `tests/unit/__init__.py`, `tests/integration/__init__.py` — all empty files.
-
----
-
-## 📁 Files to Create in Phase 1
-
-| File | Action |
-|------|--------|
-| `pyproject.toml` | Update with full dependencies |
-| `.env.example` | Create (commit this) |
-| `.env` | Create (NEVER commit) |
-| `.gitignore` | Create |
-| `.pre-commit-config.yaml` | Create |
-| `tests/conftest.py` | Create (empty for now) |
-| All `__init__.py` files | Create (empty) |
-| All folders | Create via PowerShell |
-
----
-
-## ⚠️ Common Mistakes in Phase 1
-
-| Mistake | How to Avoid |
-|---------|-------------|
-| Committing `.env` with real API keys | Always check `.gitignore` has `.env` before `git add .` |
-| Using Python 3.8 or 3.9 | Run `python --version` — need 3.10+ |
-| Forgetting `uv.lock` | Run `uv sync` to generate it; commit `uv.lock` |
-| Creating folders but forgetting `__init__.py` | Every Python package folder needs `__init__.py` |
-| Installing PyTorch without CUDA when GPU is available | Check if you have an NVIDIA GPU: run `nvidia-smi` |
-| Typo in `pyproject.toml` breaks uv | Run `uv sync` and fix any errors shown |
-
----
-
-## ✅ How to Know Phase 1 is Done
-
-Run through this checklist:
-
-```powershell
-# Check Python version
-python --version                          # Should say 3.10+
-
-# Check uv works
-uv --version                              # Should show a version
-
-# Check dependencies installed
-uv run python -c "import torch; print(torch.__version__)"    # Should print 2.x.x
-uv run python -c "import timm; print(timm.__version__)"      # Should print version
-uv run python -c "import wandb; print(wandb.__version__)"    # Should print version
-
-# Check pre-commit installed
-uv run pre-commit --version               # Should show version
-
-# Check folder structure exists
-ls src/models/fusion/                     # Should show __init__.py
-ls tests/unit/                            # Should exist
-```
-
-If all commands run without errors — **Phase 1 is done! 🎉**
-
----
-
-## 🎉 Phase 1 Celebration
-
-You've just done what every professional engineer does before writing a single line of real code:
-- ✅ Set up a reproducible environment
-- ✅ Configured code quality tools  
-- ✅ Protected your secrets
-- ✅ Created a clean folder structure
-
-This is how HuggingFace, PyTorch, and every top open-source project starts.
-
----
-
-# 🛑 STOP HERE
-
-👉 **Come back and say "Phase 1 done"** when you've completed all steps above.
-
-👉 When Phase 1 is done, we'll start **Phase 2: Data Pipeline** — where you build the PyTorch Dataset class that works WITHOUT any real dataset (using synthetic tensors for testing).
-
----
 
 ---
 
 # ✅ PHASE 1 — COMPLETED
 
-All of the following are now done:
-- ✅ Python 3.14, uv 0.8.14 verified
-- ✅ All folders created
-- ✅ All `__init__.py` files created
-- ✅ `pyproject.toml` fixed and updated (88 packages installed)
-- ✅ `.env.example` + `.env` created
-- ✅ `.gitignore` created
-- ✅ `.pre-commit-config.yaml` created
-- ✅ `tests/conftest.py` created
-- ✅ `uv sync --extra dev` — torch 2.13, timm 1.0.28, cv2 5.0 all working
+- ✅ Python 3.14, uv 0.8.14
+- ✅ All folders + `__init__.py` files
+- ✅ `pyproject.toml` — 88 packages installed (torch 2.13, timm 1.0.28)
+- ✅ `.gitignore`, `.env.example`, `.pre-commit-config.yaml`
+- ✅ `.github/workflows/ci.yml`
+- ✅ `tests/conftest.py`
 
 ---
 
 ---
 
-# 🟡 PHASE 2 — Data Pipeline (Synthetic First!)
+# ✅ PHASE 2 — Dummy Dataset + DataLoader
+**Time: 2–3 hours**
 
 ---
 
 ## 🎯 Goal
+Build a `SugarcaneDataset` that generates **fake data** so you can test the full pipeline without waiting for real images.
 
-Build a PyTorch `Dataset` class and `DataLoader` that:
-1. **Works right now** with fake (synthetic) tensors — no real images needed yet
-2. **Will work identically** when real leaf images + sensor CSVs arrive later
-3. Includes an **augmentation pipeline** for training (random flips, CLAHE, etc.)
-
----
-
-## 🤔 Why This Matters
-
-Think of a Dataset class like a **filing cabinet**. Your model says: *"Give me sample #42."* The Dataset class opens the cabinet, pulls out the image file and its metadata row, preprocesses them, and hands them to the model in the right format.
-
-Building this with synthetic data first means:
-- You can test the entire model pipeline **before** collecting a single real photo
-- If a shape is wrong, you find out instantly — not after months of data collection
-- This is standard practice at places like Google DeepMind and HuggingFace
-
----
+## 🤔 Why
+You can't train a model without data — but you also can't wait months to collect field data before even verifying the architecture works. A dummy dataset lets you develop and test the full pipeline now. When real data arrives, you swap one line: `synthetic=False`.
 
 ## 🪜 Steps
 
-### Step 2.1 — Understand What a PyTorch Dataset Is
+### Step 2.1 — Create `configs/obj1_cross_attention.yaml`
+YAML config that controls all settings without touching Python code.
 
-Before writing code, understand the **contract** every PyTorch Dataset must fulfil:
-
-```python
-# Every Dataset must have exactly these 3 things:
-class MyDataset:
-    def __init__(self):
-        # Called once — set up the data paths, transforms, etc.
-        pass
-
-    def __len__(self):
-        # Called when Python asks: "how big is this dataset?"
-        # Must return an integer (the total number of samples)
-        return 100
-
-    def __getitem__(self, index):
-        # Called when Python asks: "give me sample number `index`"
-        # Must return one sample — for us that's (image, metadata, label)
-        pass
-```
-
-PyTorch's `DataLoader` calls `__len__` and `__getitem__` automatically.  
-You never call them yourself — the DataLoader handles it.
-
----
-
-### Step 2.2 — Understand What One "Sample" Looks Like
-
-For your sugarcane model, one sample = three things:
-
-```
-Sample #42
-├── image:    a tensor of shape [3, 224, 224]   (RGB image, 3 colour channels, 224×224 pixels)
-├── metadata: a tensor of shape [4]             ([temperature, humidity, soil_moisture, rainfall])
-└── label:    an integer 0–4                    (0=healthy, 1=red_rot, 2=grassy_shoot, 3=smut, 4=pokkah_boeng)
-```
-
-This is your design. Every file you write from now on must produce or consume samples in this exact format.
-
-> 💡 **Why shape `[3, 224, 224]`?**  
-> PyTorch uses **CHW format** — Channels, Height, Width. So `[3, 224, 224]` means 3 colour channels (RGB), each 224 pixels tall and 224 pixels wide. EfficientNet and Swin-Transformer both expect exactly this size.
-
----
-
-### Step 2.3 — Create `src/utils/config.py`
-
-Before building the Dataset, you need a config loader. This reads your YAML config files and makes them available as Python dictionaries.
-
-**What to write:**
-- A function `load_config(path: str) -> dict` that reads a YAML file and returns its contents as a dictionary
-- Use `yaml.safe_load()` — NOT `yaml.load()` (the safe version prevents code injection)
-- Handle the case where the file doesn't exist (raise a clear `FileNotFoundError`)
-
-**Pseudocode (you write the real code):**
-```
-function load_config(path):
-    if path does not exist:
-        raise FileNotFoundError with a helpful message
-    open the file
-    return yaml.safe_load(file)
-```
-
-**File to create:** `src/utils/config.py`
-
----
-
-### Step 2.4 — Create `configs/obj1_cross_attention.yaml`
-
-This is your experiment configuration. YAML is like a settings file — it controls your model without you having to change the Python code.
-
-**Create the file** `configs/obj1_cross_attention.yaml` with these sections:
-
+Create the file with these sections:
 ```yaml
-# configs/obj1_cross_attention.yaml
-# Experiment configuration for Objective 1: Cross-Attention Fusion
-
 experiment:
   name: "obj1_cross_attention_v1"
-  seed: 42                          # Fixed seed for reproducibility
+  seed: 42
 
 data:
-  num_classes: 5                    # healthy, red_rot, grassy_shoot, smut, pokkah_boeng
-  image_size: 224                   # Input image size (pixels)
-  metadata_dim: 4                   # [temperature, humidity, soil_moisture, rainfall]
-  train_split: 0.7                  # 70% of data for training
-  val_split: 0.15                   # 15% for validation
-  test_split: 0.15                  # 15% for testing
-  # When real dataset exists, change these paths:
-  images_dir: "data/raw/images"
-  metadata_csv: "data/raw/metadata.csv"
+  num_classes: 4          # Healthy, Red Rot, Grassy Shoot, Smut
+  class_names: ["Healthy", "Red Rot", "Grassy Shoot", "Smut"]
+  image_size: 224
+  metadata_dim: 4         # [Temperature, Humidity, Soil Moisture, Rainfall]
+  batch_size: 16          # Small batch for Colab T4 GPU
+  num_synthetic_samples: 300
 
 model:
-  embed_dim: 128                    # Embedding dimension for all tokens
-  num_attention_heads: 4            # Number of heads in cross-attention
-  num_fusion_layers: 2              # How many cross-attention layers to stack
-  dropout_rate: 0.1                 # For MC-Dropout (Objective 2)
+  backbone: "swin_tiny_patch4_window7_224"   # timm model name
+  embed_dim: 768          # Swin-Tiny output dim
+  metadata_hidden_dim: 128
+  metadata_out_dim: 256
+  num_attention_heads: 8
+  fusion_dropout: 0.1
 
 training:
-  batch_size: 32
-  num_epochs: 50
+  num_epochs: 20
   learning_rate: 0.0001
   weight_decay: 0.0001
-  patience: 10                      # Early stopping patience (epochs)
+  patience: 5             # Early stopping
+
+colab:
+  use_drive: true
+  drive_checkpoint_path: "/content/drive/MyDrive/SugarcaneAI/checkpoints"
 
 logging:
-  use_wandb: false                  # Set to true when you have your W&B API key
+  use_wandb: false        # Set true when you have API key
   project: "sugarcane-ai-obj1"
-  log_every_n_steps: 10
 ```
 
-> 💡 **Why a YAML config?** Without YAML configs, you'd have to change Python code to try different settings. With YAML configs, you just change the YAML file and re-run. This is how research teams track experiments — each experiment gets its own config file.
+### Step 2.2 — Create `src/utils/config.py`
+A function `load_config(path: str) -> dict` that reads a YAML file.
+Use `yaml.safe_load()`. Raise `FileNotFoundError` if path doesn't exist.
 
----
+### Step 2.3 — Create `src/utils/seed.py`
+A function `set_seed(seed: int = 42)` that seeds `random`, `numpy`, `torch`, and `torch.cuda`.
 
-### Step 2.5 — Create `src/data/dataset.py`
+### Step 2.4 — Create `src/data/augmentation.py`
+Two functions:
+- `get_train_transforms(image_size)` — Resize, RandomHFlip, Rotate(±30°), ColorJitter, CLAHE(p=0.3), Normalize(ImageNet stats), ToTensorV2
+- `get_val_transforms(image_size)` — Resize, Normalize, ToTensorV2
 
-This is the main file of Phase 2. You are building the `SugarcaneDataset` class.
+### Step 2.5 — Create `src/data/dataset.py` ← Main file
 
-**Here is the full specification — you write the code:**
+**Class:** `SugarcaneDataset(torch.utils.data.Dataset)`
 
-**Class name:** `SugarcaneDataset`  
-**Inherits from:** `torch.utils.data.Dataset`
+**`__init__` args:** `config: dict`, `split: str`, `synthetic: bool = True`
 
-**`__init__` method takes:**
-- `config: dict` — the loaded YAML config
-- `split: str` — one of `"train"`, `"val"`, or `"test"`
-- `synthetic: bool = True` — when True, generate fake data instead of loading real files
-
-**What `__init__` must do:**
-1. Store `config`, `split`, `synthetic` as attributes
-2. If `synthetic=True`: generate `N=200` fake samples using random tensors (explained below)
-3. If `synthetic=False`: load a CSV metadata file, build a list of `(image_path, metadata_row, label)` tuples
-
-**`__len__` returns:** total number of samples
-
-**`__getitem__(index)` must return a Python dictionary:**
+**One sample returns a dict:**
 ```python
 {
-    "image": torch.Tensor,      # shape [3, 224, 224], float32, values in [0, 1]
-    "metadata": torch.Tensor,   # shape [4], float32, values in [0, 1]
-    "label": torch.Tensor,      # shape [], dtype=torch.long (a single integer)
+    "image":    torch.Tensor,  # [3, 224, 224] float32, values in [0,1]
+    "metadata": torch.Tensor,  # [4] float32, normalized to [0,1]
+    "label":    torch.Tensor,  # [] torch.long, value 0-3
 }
 ```
 
-**How to make synthetic data:**
-```python
-# For a fake image:
-image = torch.rand(3, 224, 224)   # Random pixels in [0, 1]
-
-# For fake metadata: [temperature, humidity, soil_moisture, rainfall]
-# Min-Max normalize to [0, 1]:
-# temperature: real range [0°C, 50°C] → divide by 50
-# humidity: real range [0%, 100%] → divide by 100
-# soil_moisture: real range [0%, 100%] → divide by 100
-# rainfall: real range [0mm, 300mm] → divide by 300
-raw_meta = torch.tensor([
-    random float between 10 and 45,   # temperature
-    random float between 30 and 100,  # humidity
-    random float between 10 and 90,   # soil_moisture
-    random float between 0 and 200,   # rainfall
-])
-# normalize each value by its max
-
-# For a fake label:
-label = torch.randint(0, num_classes, (1,)).squeeze()
+**Synthetic metadata normalization:**
+```
+Temperature: random(15, 45) / 50
+Humidity:    random(30, 100) / 100
+Soil Moist:  random(10, 90) / 100
+Rainfall:    random(0, 200) / 300
 ```
 
-**Apply transforms only during training:**
-- If `split == "train"`: apply the augmentation pipeline (Step 2.6)
-- If `split == "val"` or `"test"`: only resize and normalize
+Use `synthetic=True` always for now. Add real-file loading path for later.
 
-**File to create:** `src/data/dataset.py`
+### Step 2.6 — Create `src/data/dataloader.py`
+Function `get_dataloaders(config: dict) -> dict` returning `{"train": ..., "val": ..., "test": ...}`.
 
----
+DataLoader settings:
+- `batch_size` from config
+- `shuffle=True` for train only
+- `num_workers=0` (important for Windows + Colab compatibility)
+- `pin_memory=False`
 
-### Step 2.6 — Create `src/data/augmentation.py`
+### Step 2.7 — Create `tests/unit/test_dataset.py`
 
-Augmentation randomly transforms training images so the model learns to be robust to lighting, orientation, and camera angle differences.
+Write 4 tests:
+1. `test_dataset_length` — assert `len(dataset) == config["data"]["num_synthetic_samples"]`
+2. `test_sample_shapes` — image `[3,224,224]`, metadata `[4]`, label is `torch.long`
+3. `test_metadata_range` — metadata min ≥ 0.0, max ≤ 1.0
+4. `test_dataloader_batch` — batch image shape `[batch_size, 3, 224, 224]`
 
-**What to write:**
-- A function `get_train_transforms(image_size: int)` → returns an Albumentations `Compose` pipeline
-- A function `get_val_transforms(image_size: int)` → returns a simpler pipeline (just resize + normalize)
-
-**Training augmentation pipeline (in this order):**
-1. `A.Resize(image_size, image_size)` — resize to 224×224
-2. `A.RandomHorizontalFlip(p=0.5)` — 50% chance of flipping left-right
-3. `A.RandomVerticalFlip(p=0.2)` — 20% chance of flipping up-down
-4. `A.Rotate(limit=45, p=0.5)` — random rotation up to ±45 degrees
-5. `A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, p=0.5)` — random colour changes
-6. `A.CLAHE(clip_limit=2.0, p=0.3)` — CLAHE enhancement (30% of the time — helps Grade 1 lesions)
-7. `A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])` — ImageNet normalisation
-8. `ToTensorV2()` — convert numpy array to PyTorch tensor
-
-**Validation pipeline:**
-1. `A.Resize(image_size, image_size)`
-2. `A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])`
-3. `ToTensorV2()`
-
-> 💡 **Why ImageNet mean/std?** EfficientNet and Swin-Transformer were pretrained on ImageNet. Using the same normalization as ImageNet training makes transfer learning more effective. It's the standard values used by almost all vision models.
-
-> ⚠️ **Important import:** Albumentations needs `from albumentations.pytorch import ToTensorV2`. Don't forget this.
-
-**File to create:** `src/data/augmentation.py`
-
----
-
-### Step 2.7 — Create `src/data/dataloader.py`
-
-The DataLoader wraps your Dataset and adds:
-- **Batching:** groups samples into batches of `batch_size` (e.g., 32 at a time)
-- **Shuffling:** randomizes order each epoch (for training only)
-- **Parallel loading:** uses multiple CPU workers to load data while GPU trains
-
-**What to write:**
-- A function `get_dataloaders(config: dict)` that:
-  1. Creates `SugarcaneDataset` for train, val, test splits
-  2. Wraps each in `torch.utils.data.DataLoader`
-  3. Returns a dict: `{"train": ..., "val": ..., "test": ...}`
-
-**DataLoader settings:**
-- `batch_size`: from config
-- `shuffle=True` for train, `shuffle=False` for val and test
-- `num_workers=2` (use 2 CPU cores for loading) — on Windows, add `pin_memory=False`
-- `drop_last=True` for train (drops last incomplete batch — avoids batch norm issues)
-
-**File to create:** `src/data/dataloader.py`
-
----
-
-### Step 2.8 — Create `src/utils/seed.py`
-
-Reproducibility is critical in research. The same code must give the same results every time.
-
-**What to write:**
-- A function `set_seed(seed: int = 42)` that sets the random seed for:
-  - `random` (Python standard library)
-  - `numpy`
-  - `torch`
-  - `torch.cuda` (if GPU available)
-
-```python
-# Hint: these are the 4 lines you need to call
-import random
-random.seed(seed)
-
-import numpy as np
-np.random.seed(seed)
-
-import torch
-torch.manual_seed(seed)
-torch.cuda.manual_seed_all(seed)
-```
-
-**File to create:** `src/utils/seed.py`
-
----
-
-### Step 2.9 — Write a Smoke Test
-
-A **smoke test** is a quick sanity check — it "runs smoke" through the system to see if anything catches fire.
-
-**Create** `tests/unit/test_dataset.py` with these test functions:
-
-**Test 1 — `test_dataset_length`:**  
-Create a `SugarcaneDataset(config, split="train", synthetic=True)` and assert that `len(dataset) == 200` (or whatever N you chose for synthetic data).
-
-**Test 2 — `test_single_sample_shapes`:**  
-Get sample `dataset[0]` and assert:
-- `sample["image"].shape == torch.Size([3, 224, 224])`
-- `sample["metadata"].shape == torch.Size([4])`
-- `sample["label"].dtype == torch.int64`
-
-**Test 3 — `test_metadata_normalized`:**  
-Get sample `dataset[0]` and assert that all metadata values are in `[0, 1]` range:
-- `sample["metadata"].min() >= 0.0`
-- `sample["metadata"].max() <= 1.0`
-
-**Test 4 — `test_dataloader_batch`:**  
-Create a DataLoader from `get_dataloaders(config)["train"]`, get the first batch, and assert:
-- `batch["image"].shape == torch.Size([batch_size, 3, 224, 224])`
-- `batch["metadata"].shape == torch.Size([batch_size, 4])`
-
-**File to create:** `tests/unit/test_dataset.py`
-
----
-
-## 📁 Files to Create in Phase 2
-
-| File | What it does |
-|------|-------------|
-| `configs/obj1_cross_attention.yaml` | Experiment configuration |
-| `src/utils/config.py` | YAML config loader |
-| `src/utils/seed.py` | Reproducibility seed setter |
-| `src/data/augmentation.py` | Albumentations pipeline |
-| `src/data/dataset.py` | `SugarcaneDataset` class ← main file |
-| `src/data/dataloader.py` | DataLoader factory |
-| `tests/unit/test_dataset.py` | Smoke tests |
-
----
-
-## ⚠️ Common Mistakes in Phase 2
-
-| Mistake | How to Avoid |
-|---------|-------------|
-| Forgetting to inherit from `torch.utils.data.Dataset` | First line of class: `class SugarcaneDataset(Dataset):` |
-| Applying augmentation to val/test data | Only use `get_train_transforms` when `split == "train"` |
-| Metadata values outside `[0, 1]` | Always divide by the max value (50, 100, 100, 300) |
-| Wrong tensor dtype for labels | Labels must be `torch.long` (int64), not float |
-| Image shape in wrong order | PyTorch uses CHW `[3, 224, 224]`, not HWC `[224, 224, 3]` |
-| `num_workers > 0` crashing on Windows | Add `if __name__ == "__main__"` guard around DataLoader calls in scripts |
-| Forgetting `ToTensorV2()` import | `from albumentations.pytorch import ToTensorV2` |
-
----
-
-## ✅ How to Know Phase 2 is Done
-
-Run your tests:
-
+## ✅ Done When
 ```powershell
 uv run pytest tests/unit/test_dataset.py -v
+# 4 passed ✅
 ```
 
-Expected output:
-```
-tests/unit/test_dataset.py::test_dataset_length        PASSED ✅
-tests/unit/test_dataset.py::test_single_sample_shapes  PASSED ✅
-tests/unit/test_dataset.py::test_metadata_normalized   PASSED ✅
-tests/unit/test_dataset.py::test_dataloader_batch      PASSED ✅
-
-4 passed in X.Xs
-```
-
-If all 4 pass — **Phase 2 is done! 🎉**
-
----
-
-## 🎉 Phase 2 Summary
-
-You just built the **data foundation** of your research system. When real data arrives later, all you do is:
-1. Put images in `data/raw/images/`
-2. Put sensor readings in `data/raw/metadata.csv`
-3. Change `synthetic=False` in one line
-
-The rest of the pipeline — model, training, evaluation — stays identical.
-
----
-
-# 🛑 STOP HERE
-
-👉 **Come back and say "Phase 2 done"** when all 4 tests pass.
-
-👉 When Phase 2 is done, we'll start **Phase 3** — building the **Image Encoder** (CNN backbone + Swin-Transformer).
-
 ---
 
 ---
 
-# ⏳ Phase 3 — Coming After Phase 2 Complete
-
-*(Unlock by completing Phase 2)*
-
----
-
-# ⏳ Phase 4 onwards...
-
-*(To be unlocked phase by phase)*
-
+# ⏳ PHASE 3 — Pretrained Visual Backbone (Swin-Tiny)
+**Time: 2–3 hours**
 
 ---
 
----
+## 🎯 Goal
+Load **Swin-Tiny** from `timm` as a frozen/fine-tunable feature extractor. It outputs a feature vector — NOT a classification. We use it purely as a "visual understanding engine".
 
-## 📚 Key Concepts Reference
+## 🤔 Why Pretrained — NOT From Scratch
+- Your dataset will have only a few thousand images
+- Swin-Tiny trained on ImageNet-21k already "knows" textures, edges, color patterns
+- Training from scratch with few images → overfitting, poor generalization
+- Using pretrained = 90% of the work is already done by ImageNet training
 
-### What is `uv`?
-A Python package manager written in Rust. Much faster than `pip`. It creates virtual environments automatically and generates a lockfile for reproducibility.
+## 🪜 Steps
 
-```powershell
-uv sync            # Install all deps from pyproject.toml
-uv run pytest      # Run command inside the virtual environment
-uv add numpy       # Add a new dependency
-uv remove numpy    # Remove a dependency
+### Step 3.1 — Create `src/models/backbone/swin_backbone.py`
+
+**What to write:**
+- A class `SwinBackbone(nn.Module)`
+- In `__init__`: load `timm.create_model("swin_tiny_patch4_window7_224", pretrained=True, num_classes=0)`
+  - `num_classes=0` removes the classification head — gives you features instead of predictions
+- In `forward(x)`: pass image through model, return the output feature vector
+
+**Output shape:** `[B, 768]` — a 768-dim feature vector per image
+
+> 💡 **What is `num_classes=0`?** When you load a model normally, the last layer maps features to 1000 ImageNet classes. Setting `num_classes=0` removes that last layer, so you get the raw 768-dim feature representation instead. This is exactly what we want for fusion.
+
+### Step 3.2 — Create `tests/unit/test_swin_backbone.py`
+
+Write 2 tests:
+1. `test_output_shape` — `backbone(batch_image).shape == [B, 768]`
+2. `test_gradient_flows` — `loss.backward()` runs without error (no dead layers)
+
+## ⚠️ Common Mistakes
+| Mistake | Fix |
+|---------|-----|
+| Forgetting `num_classes=0` | The output will be wrong shape |
+| Trying to build Swin from scratch | Don't. Just `timm.create_model(...)` |
+| `pretrained=True` downloading on slow internet | Run once on Colab, weights cache to `~/.cache/torch` |
+
+## ✅ Done When
+```python
+backbone = SwinBackbone()
+out = backbone(torch.rand(2, 3, 224, 224))
+assert out.shape == torch.Size([2, 768])
 ```
 
-### What is `pre-commit`?
-A tool that runs checks automatically every time you type `git commit`. If any check fails, the commit is blocked until you fix the issue.
+---
+
+---
+
+# ⏳ PHASE 4 — Metadata MLP Encoder
+**Time: 1–2 hours**
+
+---
+
+## 🎯 Goal
+Build a small MLP that converts the 4 environmental values into a 256-dim vector that can be used in Cross-Attention.
+
+## 🪜 Steps
+
+### Step 4.1 — Create `src/models/encoders/metadata_encoder.py`
+
+**Class:** `MetadataEncoder(nn.Module)`
+
+**Architecture:**
+```
+Input: [B, 4]
+  → Linear(4, 64) → ReLU → Dropout(0.1)
+  → Linear(64, 128) → ReLU → Dropout(0.1)
+  → Linear(128, 256)
+Output: [B, 1, 256]   ← unsqueeze(1) to add sequence dimension for attention
+```
+
+Why `[B, 1, 256]`? Cross-Attention expects sequence format. The metadata becomes a single "token" — one environmental context vector that all 196 image patches can attend to.
+
+### Step 4.2 — Create `tests/unit/test_metadata_encoder.py`
+
+2 tests:
+1. `test_output_shape` — output shape `[B, 1, 256]`
+2. `test_gradient_flows` — backward pass succeeds
+
+## ✅ Done When
+```python
+encoder = MetadataEncoder()
+out = encoder(torch.rand(4, 4))
+assert out.shape == torch.Size([4, 1, 256])
+```
+
+---
+
+---
+
+# ⏳ PHASE 5 — Cross-Attention Fusion ⭐
+**Time: 3–4 hours — This is the core of your research**
+
+---
+
+## 🎯 Goal
+Implement the Cross-Attention layer that makes visual features "aware" of environmental context.
+
+## 🤔 The Big Idea
+
+The Swin backbone gives you 768-dim visual features. But the metadata encoder gives 256-dim vectors. They need to be in the **same dimension** to do attention. So first project visual features to 256-dim, then do Cross-Attention.
 
 ```
-git commit -m "Add cross-attention module"
-    │
-    ▼
-pre-commit runs:
-    • trailing-whitespace check ✅
-    • end-of-file-fixer ✅
-    • ruff linting ✅
-    • ruff formatting ✅
-    │
-    ▼
-Commit goes through ✅  (or is blocked if any check fails ❌)
+After projection:
+  Visual features (Q): [B, 196, 256]  ← 196 image patches, each 256-dim
+  Metadata tokens (K): [B, 1, 256]    ← 1 environmental context token, 256-dim
+  Metadata tokens (V): [B, 1, 256]
+
+Cross-Attention:
+  Attn(Q, K, V) = softmax(QKᵀ / √256) · V
+  Output: [B, 196, 256]   ← each patch is now "aware" of the environment
 ```
 
-### What is `pytest`?
-A testing framework. You write functions that test your code, and pytest runs them all and tells you which pass and which fail.
+**In plain English:**  
+Each of the 196 image patches asks the weather data: *"Given what you know about temperature and humidity, how should I adjust my disease prediction?"*
+
+## 🪜 Steps
+
+### Step 5.1 — Create `src/models/fusion/cross_attention.py`
+
+**Class:** `CrossAttentionFusion(nn.Module)`
+
+**`__init__` args:** `visual_dim=768`, `metadata_dim=256`, `num_heads=8`, `dropout=0.1`
+
+**What to write:**
+1. A projection layer: `nn.Linear(visual_dim, metadata_dim)` — maps 768 → 256 so dimensions match
+2. `nn.MultiheadAttention(embed_dim=metadata_dim, num_heads=num_heads, batch_first=True)`
+3. Layer norm: `nn.LayerNorm(metadata_dim)`
+4. A feed-forward: `nn.Sequential(Linear(256, 512), ReLU, Dropout, Linear(512, 256))`
+
+**`forward(visual_features, metadata_tokens)` steps:**
+1. Project: `visual_proj = self.proj(visual_features)` → `[B, 196, 256]`
+
+> 🤔 **Wait — visual_features from Swin is `[B, 768]`, not `[B, 196, 256]`!**  
+> You're right. Swin-Tiny with `num_classes=0` returns a **globally pooled** `[B, 768]` vector, not patch tokens.  
+> Fix: use `global_pool=''` when loading timm model to get patch tokens instead.  
+> Add this to `SwinBackbone`: `timm.create_model(..., num_classes=0, global_pool='')` → output: `[B, 49, 768]`  
+> Then go back and update Phase 3 accordingly. (49 = 7×7 patches for Swin-Tiny)
+
+2. Unsqueeze projected features to sequence: `[B, 49, 256]`
+3. Cross-attention: `attn_out, _ = self.attention(query=visual_proj, key=metadata_tokens, value=metadata_tokens)`
+4. Residual + LayerNorm: `out = self.norm(visual_proj + attn_out)`
+5. Feed-forward + residual: `out = out + self.ffn(out)`
+6. Pool: `fused = out.mean(dim=1)` → `[B, 256]`
+7. Return fused: `[B, 256]`
+
+### Step 5.2 — Create `tests/unit/test_cross_attention.py`
+
+3 tests:
+1. `test_output_shape` — output `[B, 256]`
+2. `test_gradient_flows` — backward succeeds, no NaN
+3. `test_attention_weights_valid` — attention weights sum ≈ 1.0
+
+## ✅ Done When
+```python
+fusion = CrossAttentionFusion()
+visual = torch.rand(2, 49, 768)
+meta   = torch.rand(2, 1, 256)
+out    = fusion(visual, meta)
+assert out.shape == torch.Size([2, 256])
+```
+
+---
+
+---
+
+# ⏳ PHASE 6 — Full Model Assembly
+**Time: 1–2 hours**
+
+---
+
+## 🎯 Goal
+Connect all 3 modules into one `SugarcaneClassifier` model.
+
+## 🪜 Steps
+
+### Step 6.1 — Update `SwinBackbone` (from Phase 3)
+Change `global_pool=''` as noted in Phase 5. Output is now `[B, 49, 768]`.
+
+### Step 6.2 — Create `src/models/multimodal_model.py`
+
+**Class:** `SugarcaneClassifier(nn.Module)`
+
+**`__init__` takes:** `config: dict`
+
+**What it contains:**
+- `self.backbone = SwinBackbone()` — visual features
+- `self.meta_encoder = MetadataEncoder()` — env tokens
+- `self.fusion = CrossAttentionFusion()` — fuse
+- `self.classifier = nn.Linear(256, num_classes)` — 256 → 4 classes
+
+**`forward(image, metadata)`:**
+1. `visual = self.backbone(image)` → `[B, 49, 768]`
+2. `meta = self.meta_encoder(metadata)` → `[B, 1, 256]`
+3. `fused = self.fusion(visual, meta)` → `[B, 256]`
+4. `logits = self.classifier(fused)` → `[B, 4]`
+5. Return `logits`
+
+### Step 6.3 — Create `tests/unit/test_full_model.py`
+
+2 tests:
+1. `test_forward_pass` — `model(image, metadata).shape == [B, 4]`
+2. `test_end_to_end_backward` — full forward + `loss.backward()` completes
+
+## ✅ Done When
+```python
+model = SugarcaneClassifier(config)
+img   = torch.rand(2, 3, 224, 224)
+meta  = torch.rand(2, 4)
+out   = model(img, meta)
+assert out.shape == torch.Size([2, 4])
+```
+
+---
+
+---
+
+# ⏳ PHASE 7 — Training on Google Colab / Kaggle
+**Time: 3–4 hours**
+
+---
+
+## 🎯 Goal
+Train the full model end-to-end. Since your laptop has no strong GPU, all training runs on **Google Colab (T4 GPU)** or **Kaggle Notebooks (P100 GPU)**.
+
+## 🪜 Steps
+
+### Step 7.1 — Create `src/training/trainer.py`
+
+**Function:** `train_one_epoch(model, dataloader, optimizer, criterion, device) -> float`
+- Loops over batches
+- `optimizer.zero_grad()` → forward → loss → `loss.backward()` → `optimizer.step()`
+- Returns average epoch loss
+
+**Function:** `validate(model, dataloader, criterion, device) -> tuple[float, float]`
+- No `torch.no_grad()` loop for validation
+- Returns (val_loss, val_accuracy)
+
+### Step 7.2 — Create `src/training/callbacks.py`
+
+**Class:** `EarlyStopping`
+- `__init__(patience=5)`
+- `__call__(val_loss) -> bool` — returns True if should stop
+- Saves best val_loss, counts patience
+
+**Function:** `save_checkpoint(model, optimizer, epoch, path)`
+- Saves `{"model_state": ..., "optimizer_state": ..., "epoch": epoch}` with `torch.save`
+
+### Step 7.3 — Create `scripts/train.py`
+
+The main training script. It should:
+1. Parse `--config` argument
+2. Load config + set seed
+3. Get dataloaders
+4. Build model
+5. Set optimizer (AdamW), scheduler (CosineAnnealingLR), criterion (CrossEntropyLoss)
+6. Training loop with early stopping + checkpoint saving
+7. Log to W&B if `config["logging"]["use_wandb"]`
+
+### Step 7.4 — Create `notebooks/train_colab.ipynb`
+
+This is a Jupyter notebook for running on Google Colab. It must have:
 
 ```python
-# A simple test example
-def test_addition():
-    assert 2 + 2 == 4    # This will pass ✅
+# Cell 1 — Mount Google Drive
+from google.colab import drive
+drive.mount('/content/drive')
 
-def test_subtraction():
-    assert 10 - 3 == 8   # This will FAIL ❌ (should be 7)
+# Cell 2 — Clone repo (if not already)
+!git clone https://github.com/shoaib-inamdar/MultiModal-Cane-Disease-Detection.git
+%cd MultiModal-Cane-Disease-Detection
+
+# Cell 3 — Install dependencies
+!pip install uv
+!uv sync
+
+# Cell 4 — Train
+!uv run python scripts/train.py --config configs/obj1_cross_attention.yaml
+
+# Cell 5 — Copy checkpoint to Drive
+import shutil
+shutil.copy("checkpoints/best_model.pth",
+            "/content/drive/MyDrive/SugarcaneAI/checkpoints/best_model.pth")
 ```
 
-### What is `wandb`?
-Weights & Biases — it's like a diary for your AI experiments. Every time you train a model, it logs:
-- Loss curves (automatically)
-- Accuracy graphs
-- Model checkpoints
-- Your config/hyperparameters
+> 💡 **Kaggle alternative:** Same steps but use Kaggle's "Add Data" to mount your repo, and save to `/kaggle/working/` then download manually.
 
-You can see all your experiments in a browser dashboard and compare them.
+### Step 7.5 — Update `configs/obj1_cross_attention.yaml`
 
-### Should I use pytest AND CodeRabbit?
+Already has `colab.drive_checkpoint_path`. Make sure `training.batch_size: 16` — Colab T4 has 16GB VRAM, batch 16 is safe.
 
-**Yes — and here's why:**
+## ⚠️ Common Mistakes
+| Mistake | Fix |
+|---------|-----|
+| `batch_size: 32` crashes Colab | Keep at 16 for Swin-Tiny |
+| Forgetting to save checkpoint | Set checkpoint path in config, call `save_checkpoint` after each epoch if val_loss improved |
+| W&B login fails on Colab | Run `!wandb login YOUR_API_KEY` in notebook cell |
 
-| Tool | What it does | When to use |
-|------|-------------|-------------|
-| `pytest` | **You** write tests that check your code logic | Every time you write a new function |
-| `CodeRabbit` | **AI** reviews your Pull Requests for quality issues | When you open a PR on GitHub |
-
-They complement each other. pytest catches logic errors. CodeRabbit catches code quality, security, and design issues. Top open-source repos like FastAPI, LangChain, and HuggingFace use both.
-
-**To add CodeRabbit:** Sign up at https://coderabbit.ai, connect your GitHub repo, and it automatically reviews every PR. Free for public repos.
-
-### Do I need a dataset right now?
-
-**NO.** This is the beauty of good software engineering:
-- Phase 2 will teach you to write a Dataset class that works with **random (synthetic) data** for testing
-- You can build, test, and validate the entire model architecture **without real data**
-- Real data (photos + sensor readings) is collected during Objective 3
-- The model code will work the same way when real data arrives — you just swap the data path
-
-This is exactly what the PyTorch team and HuggingFace do — they write tests with fake data so the architecture can be validated independently of dataset collection.
-
-### What's CI/CD and do I need it?
-
-**CI (Continuous Integration):** Every time you push code to GitHub, GitHub Actions automatically runs your pytest tests. If tests fail, you get an email. This catches bugs early.
-
-**CD (Continuous Deployment):** Automatically deploys your model/API when tests pass. For a research project, this might mean automatically running evaluation on a test set.
-
-**Should you add it?** YES — it's what separates a professional research repository from a hobby project. We'll set it up in Phase 9.
+## ✅ Done When
+- Training runs for 5 epochs without crashing
+- Loss decreases (even slightly — it's dummy data, so don't expect high accuracy)
+- Checkpoint saved to Drive at `SugarcaneAI/checkpoints/best_model.pth`
 
 ---
 
-## 🔗 Useful Links
+---
 
-| Resource | URL | Why |
-|---------|-----|-----|
-| PyTorch Docs | https://pytorch.org/docs | Reference for all `torch` operations |
-| timm Model List | https://huggingface.co/timm | See all available pretrained models |
-| Albumentations Docs | https://albumentations.ai/docs | Image augmentation reference |
-| W&B Quickstart | https://docs.wandb.ai/quickstart | Set up experiment tracking |
-| uv Docs | https://docs.astral.sh/uv | Package management reference |
-| Ruff Docs | https://docs.astral.sh/ruff | Code quality tool |
+# ⏳ PHASE 8 — Evaluation & Baselines
+**Time: 2–3 hours**
 
 ---
 
-*Good luck! You've got this. One phase at a time. 🌾*
+## 🎯 Goal
+Measure model performance and compare against a simple image-only baseline to prove Cross-Attention adds value.
+
+## 🪜 Steps
+
+### Step 8.1 — Create `src/evaluation/metrics.py`
+
+Functions to write:
+- `compute_accuracy(preds, labels) -> float`
+- `compute_macro_f1(preds, labels, num_classes) -> float` — use `sklearn.metrics.f1_score`
+- `compute_per_class_f1(preds, labels, class_names) -> dict`
+
+### Step 8.2 — Create `src/evaluation/confusion_matrix.py`
+
+Function `plot_confusion_matrix(preds, labels, class_names, save_path)`:
+- Use `sklearn.metrics.confusion_matrix` + `seaborn.heatmap`
+- Save to `experiments/obj1/plots/confusion_matrix.png`
+
+### Step 8.3 — Create `src/models/baselines/image_only.py`
+
+**Class:** `ImageOnlyClassifier(nn.Module)`
+- Same Swin-Tiny backbone
+- Global pool → `Linear(768, 4)` directly (no metadata, no fusion)
+- This is the baseline we beat
+
+### Step 8.4 — Create `scripts/evaluate.py`
+
+Load a checkpoint → run on val/test set → print accuracy + macro F1 + confusion matrix.
+
+### Step 8.5 — Create `scripts/run_baselines.py`
+
+Train and evaluate `ImageOnlyClassifier` using the same config + dummy dataset.
+
+## ✅ Done When
+Results table populated (even on dummy data — just to verify the pipeline works):
+
+| Model | Accuracy | Macro F1 |
+|-------|----------|----------|
+| Image Only (Swin-Tiny) | ~25% (random) | ~0.25 |
+| **Cross-Attention Ours** | ~25% (random) | ~0.25 |
+
+> On dummy data both will be ~25% (4 classes, random). That's expected! Real improvement comes with real data. The point is the **pipeline works end-to-end**.
+
+---
+
+---
+
+# ⏳ PHASE 9 — Testing (pytest)
+**Time: 2–3 hours**
+
+---
+
+## 🎯 Goal
+Write comprehensive unit + integration tests so CI stays green.
+
+## 🪜 Steps
+
+### Step 9.1 — Fill `tests/conftest.py`
+
+Add shared fixtures:
+```python
+import pytest, torch
+from src.utils.config import load_config
+
+@pytest.fixture
+def config():
+    return load_config("configs/obj1_cross_attention.yaml")
+
+@pytest.fixture
+def fake_image_batch():
+    return torch.rand(2, 3, 224, 224)
+
+@pytest.fixture
+def fake_meta_batch():
+    return torch.rand(2, 4)
+```
+
+### Step 9.2 — Complete all unit tests
+By this phase you should already have:
+- `test_dataset.py` ← Phase 2
+- `test_swin_backbone.py` ← Phase 3
+- `test_metadata_encoder.py` ← Phase 4
+- `test_cross_attention.py` ← Phase 5
+- `test_full_model.py` ← Phase 6
+
+Add:
+- `tests/unit/test_metrics.py` — F1 with known inputs
+- `tests/unit/test_callbacks.py` — EarlyStopping logic
+
+### Step 9.3 — Create `tests/integration/test_full_pipeline.py`
+
+One test that does everything:
+```
+load_config → set_seed → get_dataloaders → build_model → one_forward_pass → compute_loss → backward
+```
+If this passes, the full pipeline is validated.
+
+## ✅ Done When
+```powershell
+uv run pytest tests/ -v --cov=src --cov-report=term-missing
+# All tests PASS
+# Coverage ≥ 70%
+```
+
+---
+
+---
+
+# ⏳ PHASE 10 — Final Cleanup & Documentation
+**Time: 1–2 hours**
+
+---
+
+## 🎯 Goal
+Make the repo professional, reproducible, and ready for supervisors/reviewers to inspect.
+
+## 🪜 Steps
+
+### Step 10.1 — Verify CI is green
+```powershell
+# Push to GitHub — CI must pass
+git add .
+git commit -m "feat: complete objective 1 pipeline"
+git push origin main
+```
+Check Actions tab — all 3 jobs (ruff, mypy, pytest) must be ✅.
+
+### Step 10.2 — Update `experiments/obj1/`
+Create `experiments/obj1/results/obj1_results.json`:
+```json
+{
+  "model": "SugarcaneClassifier (Cross-Attention)",
+  "dataset": "Dummy Multimodal (300 samples)",
+  "backbone": "swin_tiny_patch4_window7_224 (pretrained)",
+  "classes": ["Healthy", "Red Rot", "Grassy Shoot", "Smut"],
+  "train_accuracy": null,
+  "val_accuracy": null,
+  "macro_f1": null,
+  "note": "Placeholder — to be filled with real dataset results"
+}
+```
+
+### Step 10.3 — Write `notebooks/01_data_exploration.ipynb`
+A simple notebook that:
+- Loads config
+- Creates dummy dataset
+- Visualizes 8 sample images (random tensors with class labels)
+- Shows metadata distribution plots
+
+### Step 10.4 — Verify pre-commit locally
+```powershell
+uv run pre-commit run --all-files
+```
+Fix any issues before final push.
+
+## ✅ Objective 1 is DONE When
+
+- [ ] All 10 phases complete
+- [ ] CI badge green on GitHub
+- [ ] `uv run pytest tests/` → all pass, ≥70% coverage
+- [ ] Model forward pass: `SugarcaneClassifier(image, metadata) → [B, 4]` ✅
+- [ ] Checkpoint saved to Google Drive
+- [ ] `experiments/obj1/results/obj1_results.json` exists
+- [ ] Dummy dataset pipeline proven end-to-end
+- [ ] `WALKTHROUGH.md` Phase 10 checkbox filled
+
+**Next step after Objective 1:** Begin Objective 3 (real Maharashtra dataset collection) in parallel with Objective 2 (MC-Dropout uncertainty).
+
+---
+
+## 📚 Quick Reference
+
+### Running on Google Colab
+```python
+# Always start Colab session with:
+from google.colab import drive
+drive.mount('/content/drive')
+!git clone https://github.com/shoaib-inamdar/MultiModal-Cane-Disease-Detection.git
+%cd MultiModal-Cane-Disease-Detection
+!pip install uv -q && uv sync -q
+```
+
+### Key tensor shapes to memorize
+```
+Image input:          [B, 3, 224, 224]
+Swin features:        [B, 49, 768]      ← 49 = 7×7 patches
+Projected visual:     [B, 49, 256]
+Metadata raw:         [B, 4]
+Metadata encoded:     [B, 1, 256]
+Fused output:         [B, 256]
+Logits:               [B, 4]            ← 4 disease classes
+```
+
+### Disease Classes
+```
+0 = Healthy
+1 = Red Rot
+2 = Grassy Shoot
+3 = Smut
+```
+
+### uv commands
+```powershell
+uv sync --extra dev          # Install all deps
+uv run pytest tests/ -v      # Run all tests
+uv run python scripts/train.py --config configs/obj1_cross_attention.yaml
+uv run pre-commit run --all-files
+```
