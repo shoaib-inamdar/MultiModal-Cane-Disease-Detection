@@ -1,8 +1,11 @@
 import torch
-from src.utils.config import load_config
-from src.data.dataset import SugarcaneDataset
+
 from src.data.dataloader import get_dataloaders
+from src.data.dataset import SugarcaneDataset
+from src.utils.config import load_config
+
 CONFIG_PATH = "configs/obj1_cross_attention.yaml"
+
 
 def test_dataset_length():
     config = load_config(CONFIG_PATH)
@@ -28,6 +31,7 @@ def test_dataset_length():
     assert len(test_dataset) == 30
 
     assert len(train_dataset) + len(val_dataset) + len(test_dataset) == 300
+
 
 def test_sample_shapes():
     config = load_config(CONFIG_PATH)

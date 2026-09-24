@@ -1,48 +1,38 @@
-# CodeRabbit AI Code Review Configuration
-# Docs: https://docs.coderabbit.ai
+# configs/obj1_cross_attention.yaml
+# Objective 1: Cross-Attention Multimodal Fusion — Training Configuration
 
-version: "2"
+experiment:
+  name: "obj1_cross_attention_v1"
+  seed: 42
 
-language: "en-US"
+data:
+  num_classes: 4
+  class_names: ["Healthy", "Red Rot", "Grassy Shoot", "Smut"]
+  image_size: 224
+  metadata_dim: 4          # [Temperature, Humidity, Soil Moisture, Rainfall]
+  batch_size: 16            # Small batch for Colab T4 GPU
+  num_synthetic_samples: 300
+  synthetic: true           # Stage A — dummy dataset
+  synthetic_metadata: true  # Stage A — synthetic metadata
 
-reviews:
-  # Auto-review every pull request
-  auto_review:
-    enabled: true
-    drafts: false
+model:
+  backbone: "swin_tiny_patch4_window7_224"   # timm model name
+  embed_dim: 768            # Swin-Tiny output dim
+  metadata_hidden_dim: 128
+  metadata_out_dim: 256
+  num_attention_heads: 8
+  fusion_dropout: 0.1
 
-  # What CodeRabbit should focus on
-  profile: "assertive"
+training:
+  num_epochs: 20
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  patience: 5               # Early stopping patience
 
-  # Review settings
-  request_changes_workflow: false
-  high_level_summary: true
-  poem: false
-  review_status: true
-  collapse_walkthrough: false
+colab:
+  use_drive: true
+  drive_checkpoint_path: "/content/drive/MyDrive/SugarcaneAI/checkpoints"
 
-  # Path-specific instructions
-  path_instructions:
-    - path: "agents/**"
-      instructions: |
-        This is an AI agent. Review for:
-        - Safety: does it properly check permissions before taking action?
-        - Error handling: what happens if the LLM returns bad output?
-        - Clear separation of concerns between agents.
-
-    - path: "core/**"
-      instructions: |
-        This is shared core code. Review for:
-        - Reusability across all agents
-        - Good type annotations
-        - No hardcoded secrets or paths
-
-    - path: "tests/**"
-      instructions: |
-        Review tests for:
-        - Coverage of edge cases
-        - Proper use of pytest fixtures
-        - Meaningful assertion messages
-
-chat:
-  auto_reply: true
+logging:
+  use_wandb: false          # Set true when you have W&B API key
+  project: "sugarcane-ai-obj1"
