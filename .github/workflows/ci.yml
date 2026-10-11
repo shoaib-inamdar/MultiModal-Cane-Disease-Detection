@@ -4,39 +4,58 @@ on:
   push:
     branches: [main, develop]
   pull_request:
+    # Trigger on PRs targeting main or develop from ANY source branch
     branches: [main, develop]
 
 jobs:
-  test:
+  # ── Lint & format check ──────────────────────────────────────────────────────
+  lint:
+    name: Lint & Format check
     runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v3
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Check formatting (ruff format)
+        # Non-blocking on PRs so tests always run even if code needs formatting
+        run: uv run ruff format --check src/ tests/ --exclude .venv
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
+
+      - name: Lint (ruff check)
+        run: uv run ruff check src/ tests/ --exclude .venv
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
+
+  # ── Unit & integration tests ─────────────────────────────────────────────────
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    needs: lint
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.10", "3.11"]
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v3
+      - uses: astral-sh/setup-uv@v3
 
       - name: Install dependencies
         run: uv sync --extra dev
 
-      - name: Check code formatting (ruff)
-        run: uv run ruff format --check src/ tests/ --exclude .venv
-
-      - name: Lint (ruff)
-        run: uv run ruff check src/ tests/ --exclude .venv
-
       - name: Type check (mypy)
         run: uv run mypy src/ --exclude .venv
-        continue-on-error: true  
+        continue-on-error: true
 
       - name: Run unit tests
         run: uv run pytest tests/unit/ -v --tb=short --cov=src --cov-report=xml
@@ -45,20 +64,17 @@ jobs:
         shell: bash
         run: |
           set +e
-
           uv run pytest tests/integration/ -v --tb=short
           status=$?
-
-          # Pytest exit code 5 means no tests were collected.
+          # Exit code 5 = no tests collected — treat as success
           if [ "$status" -eq 5 ]; then
-            echo "::notice::No integration tests were collected; skipping for now."
+            echo "::notice::No integration tests collected; skipping."
             exit 0
           fi
-
           exit "$status"
 
-      - name: 📊 Upload coverage to Codecov
-        if: ${{ secrets.CODECOV_TOKEN != '' && hashFiles('coverage.xml') != '' }}
+      - name: Upload coverage to Codecov
+        if: ${{ hashFiles('coverage.xml') != '' }}
         uses: codecov/codecov-action@v4
         with:
           files: ./coverage.xml
