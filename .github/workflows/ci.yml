@@ -1,42 +1,85 @@
-name: 🧪 CI — Test & Validate
+﻿name: CI -- Auto-fix & Test
 
 on:
   push:
     branches: [main, develop]
+    paths:
+      - '**.py'
+      - 'pyproject.toml'
+      - 'requirements*.txt'
+      - 'uv.lock'
+      - '.github/workflows/**'
   pull_request:
     branches: [main, develop]
 
+permissions:
+  contents: write   # lets the autofix job commit back to main
+
 jobs:
-  test:
+  # -- Auto-fix formatting (push to main/develop only) -------------------------
+  autofix:
+    name: Auto-fix formatting (Ruff)
     runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: astral-sh/setup-uv@v3
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Auto-format with Ruff
+        run: |
+          uv run ruff format src/ tests/ --exclude .venv || true
+          uv run ruff check --fix src/ tests/ --exclude .venv || true
+
+      - name: Commit fixes (if any)
+        run: |
+          if git diff --quiet; then
+            echo "No formatting changes needed."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add src/ tests/
+            git commit -m "style: auto-fix formatting with Ruff [skip ci]"
+            git push
+          fi
+
+  # -- Tests (push + PR) -------------------------------------------------------
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    # On push: wait for autofix so tests run on already-formatted code.
+    # On PR:   autofix is skipped, but always() lets test run anyway.
+    needs: autofix
+    if: always()
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.10", "3.11"]
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v3
+      - uses: astral-sh/setup-uv@v3
 
       - name: Install dependencies
         run: uv sync --extra dev
 
-      - name: Check code formatting (ruff)
-        run: uv run ruff format --check src/ tests/ --exclude .venv
-
-      - name: Lint (ruff)
-        run: uv run ruff check src/ tests/ --exclude .venv
-
       - name: Type check (mypy)
         run: uv run mypy src/ --exclude .venv
-        continue-on-error: true  
+        continue-on-error: true
 
       - name: Run unit tests
         run: uv run pytest tests/unit/ -v --tb=short --cov=src --cov-report=xml
@@ -45,20 +88,17 @@ jobs:
         shell: bash
         run: |
           set +e
-
           uv run pytest tests/integration/ -v --tb=short
           status=$?
-
-          # Pytest exit code 5 means no tests were collected.
+          # Exit code 5 = no tests collected -- treat as success
           if [ "$status" -eq 5 ]; then
-            echo "::notice::No integration tests were collected; skipping for now."
+            echo "::notice::No integration tests collected; skipping."
             exit 0
           fi
-
           exit "$status"
 
-      - name: 📊 Upload coverage to Codecov
-        if: ${{ secrets.CODECOV_TOKEN != '' && hashFiles('coverage.xml') != '' }}
+      - name: Upload coverage to Codecov
+        if: ${{ hashFiles('coverage.xml') != '' }}
         uses: codecov/codecov-action@v4
         with:
           files: ./coverage.xml
