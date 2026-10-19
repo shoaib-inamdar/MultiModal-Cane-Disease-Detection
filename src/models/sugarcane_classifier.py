@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-from src.models.backbone.skin_backbone import SwinBackbone
+from src.models.backbone.swin_backbone import SwinBackbone
 from src.models.encoders.metadata_encoder import MetadataEncoder
 from src.models.fusion.cross_attention import CrossAttentionFusion
 
