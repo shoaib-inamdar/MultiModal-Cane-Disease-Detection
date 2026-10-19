@@ -1,11 +1,11 @@
-from importlib.metadata import metadata
+
 import torch
 import torch.nn as nn
-import pytest_
-from src.models.sugarcane_classifier import SugarcaneClassifier, sugarcane_classifier
+import pytest
+from src.models.sugarcane_classifier import SugarcaneClassifier
 
 
-@pytets.fixture
+@pytest.fixture
 def model():
     return SugarcaneClassifier(num_classes=6)
 
@@ -15,8 +15,8 @@ def test_output_shape(model):
     out=model(image,metadata)
     assert out.shape==torch.Size([2,6])
 
-def gradident_flows(model):
-    image=torch.rand(2,3,224,224,require_grad=True)
+def test_gradient_flows(model):
+    image=torch.rand(2,3,224,224,requires_grad=True)
     metadata=torch.rand(2,4,requires_grad=True)
     out=model(image,metadata)
     out.sum().backward()
