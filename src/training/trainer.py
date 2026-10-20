@@ -1,13 +1,8 @@
-from torch.distributed import all_to_all
-from timm.data.dataset_info import LabelNames
-from torch._inductor.codegen.simd import all_prefixes
-from src.models.sugarcane_classifier import SugarcaneClassifier
-import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader
-from src.training.metrics import compute_metrics
 from pathlib import Path
-from typing import Any
+
+import torch
+
+from src.training.metrics import compute_metrics
 
 
 def train_one_epoch(model, loader, optimizer, criterion, device):

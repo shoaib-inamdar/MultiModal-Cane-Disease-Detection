@@ -1,11 +1,9 @@
-from timm.data import loader
-import base64
 import torch
 import torch.nn as nn
-import pytest
 from torch.utils.data import DataLoader, TensorDataset
-from src.training.trainer import train_one_epoch, evaluate
+
 from src.training.metrics import compute_metrics
+from src.training.trainer import evaluate, train_one_epoch
 
 
 def tiny_loader():
