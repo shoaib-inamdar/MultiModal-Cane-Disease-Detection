@@ -1,19 +1,32 @@
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.data import DataLoader, Dataset
 
 from src.training.metrics import compute_metrics
 from src.training.trainer import evaluate, train_one_epoch
 
 
+class _DictDataset(Dataset):
+    """Minimal dict-returning dataset that matches SugarcaneDataset's contract."""
+
+    def __init__(self, n=4, num_classes=4):
+        self.images = torch.rand(n, 3, 224, 224)
+        self.metadata = torch.rand(n, 4)
+        self.labels = torch.randint(0, num_classes, (n,))
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __getitem__(self, idx):
+        return {
+            "image": self.images[idx],
+            "metadata": self.metadata[idx],
+            "label": self.labels[idx],
+        }
+
+
 def tiny_loader():
-    images = torch.rand(4, 3, 224, 224)
-    metadata = torch.rand(4, 4)
-    labels = torch.randint(0, 4, (4,))
-
-    dataset = TensorDataset(images, metadata, labels)
-
-    return DataLoader(dataset, batch_size=2)
+    return DataLoader(_DictDataset(n=4, num_classes=4), batch_size=2)
 
 
 def tiny_model():

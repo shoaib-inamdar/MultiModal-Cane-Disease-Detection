@@ -10,10 +10,10 @@ def train_one_epoch(model, loader, optimizer, criterion, device):
     model.train()
     running_loss = 0.0
 
-    for images, metadata, labels in loader:
-        images = images.to(device)
-        metadata = metadata.to(device)
-        labels = labels.to(device)
+    for batch in loader:
+        images = batch["image"].to(device)
+        metadata = batch["metadata"].to(device)
+        labels = batch["label"].to(device)
 
         optimizer.zero_grad()
 
@@ -37,10 +37,10 @@ def evaluate(model, loader, criterion, device):
     all_labels: list[int] = []
 
     with torch.no_grad():
-        for images, metadata, labels in loader:
-            images = images.to(device)
-            metadata = metadata.to(device)
-            labels = labels.to(device)
+        for batch in loader:
+            images = batch["image"].to(device)
+            metadata = batch["metadata"].to(device)
+            labels = batch["label"].to(device)
 
             logits = model(images, metadata)
             loss = criterion(logits, labels)
