@@ -72,7 +72,6 @@ class SugarcaneDataset(Dataset):
         else:
             self.labels = all_labels[n_train + n_val :]
 
-
     def _setup_real(self, images_dir: str, metadata_csv):
         """
         Walk images_dir and collect image paths + integer labels.
@@ -109,7 +108,6 @@ class SugarcaneDataset(Dataset):
                 f"Expected sub-folders: {list(FOLDER_TO_IDX.keys())}"
             )
 
-
         rng = np.random.RandomState(42)
         indices = rng.permutation(len(all_paths))
 
@@ -138,7 +136,6 @@ class SugarcaneDataset(Dataset):
                 ),
             ]
         )
-
 
     def __len__(self) -> int:
         return self.length
