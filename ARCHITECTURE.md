@@ -97,10 +97,10 @@ Stage 3: PREPROCESSING & ALIGNMENT
   └── Sync:        GPS + EXIF timestamp → match image to weather entry (±15 min)
 
 Stage 4: FEATURE EXTRACTION + FUSION
-  ├── CNN Backbone (EfficientNet-B3): Spatial feature extraction
-  ├── Swin-Transformer Encoder:       Global visual tokens (128-dim vectors, 196 patches)
-  ├── MLP Metadata Encoder:           Environmental tokens (128-dim)
-  └── Cross-Attention Fusion:         Image queries environment context → Fused tokens
+  |- Swin-Tiny Backbone:           Visual patch tokens (768-dim, 49 patches) [B, 49, 768]
+  |- MLP Metadata Encoder:         Environmental token (256-dim) [B, 1, 256]
+  |- Linear Projection (768->256): Align visual to metadata dim [B, 49, 256]
+  `- Cross-Attention Fusion:        Image patches query env context -> Fused tokens [B, 256]
 
 Stage 5: INFERENCE
   ├── MC-Dropout (T=50 passes):        Stochastic uncertainty estimation
@@ -209,37 +209,32 @@ Linear Projection Layer (10 → 128-dim Environmental Token)
 
 ## 6. Layer 3 — Feature Extraction
 
-### 6.1 Image Encoder (Hybrid CNN-ViT)
+### 6.1 Image Encoder (Swin-Tiny)
 
 ```python
-# Pseudocode — do NOT copy as final code
-image_patches = cnn_backbone(image)          # EfficientNet-B3 spatial features
-visual_tokens = swin_transformer(image_patches)  # Shape: (B, 196, 128)
+# Pseudocode
+visual_tokens = swin_backbone(image)   # [B, 49, 768]
 ```
 
-**CNN Backbone — EfficientNet-B3:**
-- Pretrained on ImageNet (transfer learning)
-- Extracts fine-grained spatial features (lesion texture, color, spread pattern)
-- Output: feature maps → flattened patches
+**Swin-Tiny Backbone:**
+- Pretrained on ImageNet (transfer learning via `timm`)
+- `swin_tiny_patch4_window7_224` — patch size 4, window size 7
+- Output: **49 visual tokens** (7×7 spatial grid), each **768-dim**
+- Why Swin over pure ViT? Shifted-window attention handles variable-scale lesions efficiently.
 
-**Swin-Transformer Encoder:**
-- Self-attention over image patches → **196 visual tokens**, each 128-dim
-- Captures global context (where on the leaf is the lesion?)
-- "Biologically-Informed Reasoning" layer: self-attention captures macro-disease patterns
-
-**Why EfficientNet + Swin together?**  
-CNN captures local spatial features (lesion texture). Swin captures global relationships (distribution across the leaf). Together they form a richer visual representation than either alone.
+**Why not EfficientNet-B3 + Swin together?**
+The synopsis mentions a hybrid CNN+ViT design for the full system. In Objective 1 (this phase), we use Swin-Tiny alone as the visual backbone for simplicity. EfficientNet will be added as a baseline in Objective 6.
 
 ### 6.2 Metadata Encoder (MLP)
 
 ```python
-# Pseudocode
-meta_tokens = mlp_encoder(metadata_vector)   # Shape: (B, 1, 128)
+# Shape: [B, 4] -> [B, 1, 256]
+meta_tokens = metadata_encoder(metadata)
 ```
 
-- Simple Multi-Layer Perceptron: `[4 → 64 → 128]` with ReLU + Dropout
-- Projects the 4 environmental values into the **same 128-dim embedding space** as visual tokens
-- This is essential — Cross-Attention requires Q, K, V to be in the same dimensional space
+- `[4 -> 64 -> 128 -> 256]` with ReLU + Dropout
+- Projects the 4 environmental values into a **single 256-dim token**
+- The unsqueeze(1) makes it `[B, 1, 256]` — one token per sample in the sequence
 
 ---
 
@@ -276,14 +271,20 @@ Where:
 ### Architecture Detail
 
 ```python
-# Pseudocode
+# Actual implementation
 fused_tokens = cross_attention(
-    query=visual_tokens,   # (B, 196, 128) — image patches ask questions
-    key=meta_tokens,       # (B, 1, 128)   — environment answers
-    value=meta_tokens      # (B, 1, 128)   — environment provides context
+    query=proj(visual_tokens),  # [B, 49, 256] — visual patches ask questions
+    key=meta_tokens,            # [B,  1, 256] — environment answers
+    value=meta_tokens           # [B,  1, 256] — environment provides context
 )
-# fused_tokens shape: (B, 196, 128)
-# Each visual patch is now "aware" of the environmental context
+# fused_tokens: [B, 49, 256]
+# Each of 49 patches is now "weather-aware"
+
+# Mean-pool over 49 patches -> single fused vector
+fused = fused_tokens.mean(dim=1)   # [B, 256]
+
+# Classification head
+logits = classifier(fused)          # [B, num_classes]
 ```
 
 **Residual Connection:** `fused = LayerNorm(visual_tokens + cross_attention_output)`  
@@ -455,12 +456,16 @@ OUTPUT REPORT
 ## 14. Objective-Wise Architecture Map
 
 ```
-Objective 1 — Cross-Attention Fusion
-  Files: src/models/fusion/cross_attention.py
-         src/models/encoders/image_encoder.py
-         src/models/encoders/metadata_encoder.py
-         src/models/multimodal_model.py
+Objective 1 -- Cross-Attention Fusion (PHASES 1-8 COMPLETE)
+  Files: src/models/backbone/swin_backbone.py          # Swin-Tiny [B,3,224,224] -> [B,49,768]
+         src/models/encoders/metadata_encoder.py       # MLP [B,4] -> [B,1,256]
+         src/models/fusion/cross_attention.py          # CrossAttentionFusion (core)
+         src/models/sugarcane_classifier.py            # Full model assembly
+         src/training/trainer.py                       # train_one_epoch, evaluate
+         src/training/metrics.py                       # accuracy, macro F1
+         src/evaluation/evaluator.py                   # evaluate_on_test, load_checkpoint
   Config: configs/obj1_cross_attention.yaml
+  Tests:  tests/unit/ (24 passing)
 
 Objective 2 — Uncertainty Quantification
   Files: src/models/heads/uncertainty_head.py
@@ -497,7 +502,7 @@ Objective 6 — Baseline Comparison
 
 | Limitation | Impact | Mitigation |
 |-----------|--------|------------|
-| No dataset yet (Obj 3 in progress) | Cannot train full model | Use PlantVillage + synthetic metadata for Obj 1 prototyping |
+| No real dataset yet (Stage B in queue) | Cannot train on real images | Use Mendeley datasets (Thite 6,748 + Daphal 2,569) — see `Dataset_Strategy.md` |
 | Weather API rate limits | May miss metadata for some images | Cache API results locally, use DHT22 hardware for field sites |
 | Single-leaf input | Missing stalk-level context | Future: multi-view input pipeline |
 | Inference latency (Teacher model) | Not real-time on mobile yet | Obj 4 (distillation) addresses this |
@@ -505,5 +510,5 @@ Objective 6 — Baseline Comparison
 
 ---
 
-*This document will be updated as each research objective is completed.*  
-*Last updated: August 2026 — Objective 1 in progress.*
+*This document will be updated as each research objective is completed.*
+*Last updated: October 2026 — Objective 1 pipeline complete (Phases 1-8). Stage B dataset integration next.*

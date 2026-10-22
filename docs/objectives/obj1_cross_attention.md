@@ -1,57 +1,92 @@
-# Objective 1 — Cross-Attention Multimodal Feature Fusion
+﻿# Objective 1 -- Cross-Attention Multimodal Feature Fusion
 
 ## Overview
 
-**Research Question:**  
+**Research Question:**
 *"Can Cross-Modal Attention between leaf visual features and environmental metadata resolve the visual ambiguity between early-stage Red Rot lesions and abiotic stresses like Leaf Scorch under field conditions?"*
 
-**Core Hypothesis:**  
-Cross-Attention fusion will improve macro F1-score by ≥5% over vision-only baselines, because environmental context (humidity, temperature, soil moisture) acts as a diagnostic prior that resolves visually identical symptoms.
+**Core Hypothesis:**
+Cross-Attention fusion will improve macro F1-score by >=5% over vision-only baselines, because environmental context (humidity, temperature, soil moisture) acts as a diagnostic prior that resolves visually identical symptoms.
 
 ---
 
-## Architecture
+## Architecture (As Built -- Phases 1-8)
 
 ```
-Visual Tokens (Q)     Environmental Tokens (K, V)
-[B, 196, 128]         [B, 1, 128]
-      │                     │
-      └──────┬──────────────┘
-             ▼
-    Cross-Attention Layer
-    Attn(Q,K,V) = softmax(QKᵀ/√d) · V
-             │
-             ▼
-    Fused Context-Aware Features
-    [B, 196, 128]
-             │
-             ▼
-    Disease Classifier → 5 classes
+Visual Tokens (Q)       Environmental Tokens (K, V)
+[B, 49, 768]            [B, 1, 256]
+      |                      |
+      |   proj 768->256      |
+      v                      |
+[B, 49, 256] -----------> Cross-Attention (8 heads)
+                             |
+                             v
+                    Fused Context-Aware Features [B, 49, 256]
+                             |
+                        mean(dim=1)
+                             v
+                    [B, 256] fused vector
+                             |
+                      nn.Linear(256, num_classes)
+                             v
+                    Logits [B, num_classes]
 ```
+
+**Actual tensor dimensions in this repo:**
+
+| Stage | Shape | Module |
+|-------|-------|--------|
+| Image input | `[B, 3, 224, 224]` | — |
+| Visual patches | `[B, 49, 768]` | `SwinBackbone` |
+| Projected patches | `[B, 49, 256]` | `CrossAttentionFusion.proj` |
+| Env token | `[B, 1, 256]` | `MetadataEncoder` |
+| Fused vector | `[B, 256]` | `CrossAttentionFusion` (mean pool) |
+| Logits | `[B, num_classes]` | `nn.Linear(256, num_classes)` |
 
 ---
 
-## Key Files
+## Key Files (Current Repo Structure)
 
 | File | Purpose |
 |------|---------|
-| `src/models/fusion/cross_attention.py` | **Core module** — the cross-attention mechanism |
-| `src/models/encoders/image_encoder.py` | CNN + Swin visual feature extraction |
-| `src/models/encoders/metadata_encoder.py` | MLP environmental feature encoding |
-| `src/models/multimodal_model.py` | Full model assembly |
-| `configs/obj1_cross_attention.yaml` | Training configuration |
-| `tests/unit/test_cross_attention.py` | Unit tests for fusion module |
+| `src/models/backbone/swin_backbone.py` | Swin-Tiny encoder -- `[B,3,224,224]` -> `[B,49,768]` |
+| `src/models/encoders/metadata_encoder.py` | MLP env encoder -- `[B,4]` -> `[B,1,256]` |
+| `src/models/fusion/cross_attention.py` | **Core module** -- CrossAttentionFusion |
+| `src/models/sugarcane_classifier.py` | Full model assembly + classifier head |
+| `src/training/trainer.py` | `train_one_epoch`, `evaluate`, `save_checkpoint` |
+| `src/training/metrics.py` | `compute_metrics` -- accuracy + macro F1 |
+| `src/evaluation/evaluator.py` | `evaluate_on_test`, `load_checkpoint`, `print_report` |
+| `configs/obj1_cross_attention.yaml` | Training hyperparameters |
+| `notebooks/01_evaluate.ipynb` | Colab evaluation notebook (keep in repo for reproducibility) |
 
 ---
 
 ## Baselines (What We Compare Against)
 
-| Model | Description | Config |
-|-------|-------------|--------|
-| Image Only (ResNet50) | Standard CNN, no metadata | `configs/baselines/resnet50.yaml` |
-| Image Only (EfficientNet-B3) | Efficient CNN, no metadata | `configs/baselines/efficientnet.yaml` |
-| Concat Fusion | Simple feature concatenation | `configs/baselines/concat.yaml` |
-| **Cross-Attention (Ours)** | Novel fusion mechanism | `configs/obj1_cross_attention.yaml` |
+| Model | Description | How trained |
+|-------|-------------|------------|
+| **SugarcaneAI (Cross-Attention)** | Full model -- image + weather | Trained from scratch |
+| Image Only (Swin-Tiny) | Same backbone, no metadata branch | **Separate** training run |
+| Metadata Only (MLP) | MetadataEncoder + Linear head, no image branch | **Separate** training run |
+| Concat Fusion | Concatenate visual + env features, no attention | **Separate** training run |
+
+> **Important:** Baselines must be trained independently from scratch on the same data split.
+> Do NOT ablate from the already-trained multimodal model -- that does not constitute a valid baseline.
+
+---
+
+## Dataset Stages
+
+| Stage | Dataset | Metadata | Status |
+|-------|---------|----------|--------|
+| **A -- Synthetic** | `torch.rand()` tensors | Random floats | Done (Phases 1-8) |
+| **B -- Kaggle/Mendeley** | Thite 6,748 + Daphal 2,569 leaf images | Synthetic (API-sourced later) | Next step |
+| **C -- Real Field** | Maharashtra field photos | DHT22 + IMD weather API | Objective 3 |
+
+**Stage B recommended datasets (in priority order):**
+1. Thite 6,748 -- https://data.mendeley.com/datasets/355y629ynj/1 (primary training)
+2. Daphal & Koli 2,569 -- https://data.mendeley.com/datasets/9424skmnrk/1 (Maharashtra validation)
+3. S2RMCMD -- https://data.mendeley.com/datasets/rt8sv9t445 (multimodal annotations)
 
 ---
 
@@ -59,71 +94,26 @@ Visual Tokens (Q)     Environmental Tokens (K, V)
 
 | Metric | What it measures | Target |
 |--------|-----------------|--------|
-| Macro F1-Score | Balanced accuracy across all 5 classes | >5% over baseline |
+| Macro F1-Score | Balanced accuracy across all 4 classes | >5% over baseline |
 | Accuracy | Overall correct predictions | Track, not primary |
-| ECE | Model calibration (honesty) | ≤0.05 |
 | Confusion Matrix | Per-class performance | Visualize |
+| ECE | Model calibration honesty | <=0.05 (Objective 2) |
 
 ---
 
-## Ablation Study Plan
+## Build Status (Phase by Phase)
 
-To prove Cross-Attention adds value, we run ablations:
-
-| Ablation | Removed Component | Purpose |
-|----------|-------------------|---------|
-| Image Only | All metadata | Lower bound |
-| Temperature Only | Humidity + Moisture | Single-feature test |
-| Humidity Only | Temperature + Moisture | Single-feature test |
-| Soil Moisture Only | Temperature + Humidity | Single-feature test |
-| All Metadata (Concat) | Cross-Attention (use concat) | Fusion method test |
-| **Full Model (Ours)** | Nothing | Upper bound |
-
----
-
-## Results (To Be Filled)
-
-| Model | Accuracy | Macro F1 | ECE |
-|-------|----------|----------|-----|
-| ResNet50 Baseline | — | — | — |
-| EfficientNet Baseline | — | — | — |
-| Concat Fusion | — | — | — |
-| **Cross-Attention (Ours)** | **—** | **—** | **—** |
-
----
-
-## Training Commands
-
-```bash
-# Train baseline models first
-uv run python scripts/run_baselines.py --configs configs/baselines/
-
-# Train our cross-attention model
-uv run python scripts/train.py --config configs/obj1_cross_attention.yaml
-
-# Run ablation studies
-uv run python scripts/run_ablation.py --configs configs/ablation/
-
-# Evaluate best checkpoint
-uv run python scripts/evaluate.py \
-    --config configs/obj1_cross_attention.yaml \
-    --checkpoint checkpoints/obj1_best.pth
-```
-
----
-
-## Status
-
-- [ ] Preprocessing pipeline implemented
-- [ ] Synthetic dataset class implemented  
-- [ ] CNN backbone implemented
-- [ ] Swin-Transformer encoder implemented
-- [ ] MLP metadata encoder implemented
-- [ ] Cross-Attention fusion implemented
-- [ ] Training loop implemented
-- [ ] Baseline models implemented
-- [ ] Evaluation metrics implemented
-- [ ] Unit tests written
-- [ ] Ablation study run
-- [ ] Results documented
-- [ ] CI/CD configured
+- [x] Phase 1-2: Project scaffold, CI/CD, synthetic dataset
+- [x] Phase 3: Swin-Tiny backbone (`test_swin_backbone.py` -- 3 passed)
+- [x] Phase 4: MLP metadata encoder (`test_metadata_encoder.py` -- 2 passed)
+- [x] Phase 5: Cross-Attention fusion (`test_cross_attention.py` -- 3 passed)
+- [x] Phase 6: SugarcaneClassifier assembly (`test_sugarcane_classifier.py` -- 3 passed)
+- [x] Phase 7: Training loop + metrics (`test_trainer.py` -- 3 passed)
+- [x] Phase 8: Evaluator + checkpoint (`test_evaluator.py` -- 2 passed)
+- [x] Unit tests: **24 passing** (all modules covered)
+- [ ] Phase 9: Integration tests + coverage report
+- [ ] Phase 10: Final CI/CD hardening + documentation freeze
+- [ ] Stage B: Real image dataset integration
+- [ ] Baseline comparison (3 separately trained models)
+- [ ] Ablation study
+- [ ] Results table with real F1 numbers

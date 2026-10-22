@@ -34,7 +34,7 @@
 
 | # | Objective | Core Technique | Status |
 |---|-----------|---------------|--------|
-| **1** | Cross-Attention Multimodal Feature Fusion | Pretrained Swin-Tiny + Environmental MLP + Cross-Attention | 🔄 **In Progress** |
+| **1** | Cross-Attention Multimodal Feature Fusion | Swin-Tiny + MetadataEncoder + CrossAttentionFusion | ✅ **Pipeline Complete** (Phases 1–8) |
 | **2** | Uncertainty Quantification | Monte Carlo Dropout + ECE Calibration | ⏳ Planned |
 | **3** | Maharashtra Multimodal Dataset | Field Survey + DHT22/IoT Sensors + GPS Sync | ⏳ Planned |
 | **4** | Knowledge Distillation (Edge Deployment) | Teacher-Student KL-Divergence, ≥40% FLOPs reduction | ⏳ Planned |
@@ -155,23 +155,37 @@ uv run python scripts/train.py --config configs/obj1_cross_attention.yaml
 
 ## 📊 Results Dashboard
 
-### Objective 1 — Cross-Attention Fusion (In Progress)
+### Objective 1 — Cross-Attention Fusion — Pipeline Status
 
-| Model | Accuracy | Macro F1 | ECE ↓ | Params |
-|-------|----------|----------|-------|--------|
-| Image Only (ResNet50 Baseline) | — | — | — | ~25M |
-| Image Only (EfficientNet-B3) | — | — | — | ~12M |
-| Concat Fusion | — | — | — | ~14M |
-| **Cross-Attention Ours** | **—** | **—** | **—** | **~16M** |
+**Phases 1–8 complete.** Full training + evaluation pipeline working on synthetic data. Real dataset integration is the next step.
 
-> Results will be updated as experiments run. Track live on [Weights & Biases](https://wandb.ai).
+| Module | Status | Tests |
+|--------|--------|-------|
+| `SwinBackbone` (Swin-Tiny, 49 patches × 768-dim) | ✅ Done | 3 passed |
+| `MetadataEncoder` (4 → 256-dim token) | ✅ Done | 2 passed |
+| `CrossAttentionFusion` (8 heads, 256-dim) | ✅ Done | 3 passed |
+| `SugarcaneClassifier` (full model assembly) | ✅ Done | 3 passed |
+| `trainer.py` (training loop) | ✅ Done | 3 passed |
+| `evaluator.py` (checkpoint + test eval) | ✅ Done | 2 passed |
+| **Total unit tests** | | **24 passed** |
+
+**Comparison table (to be filled with real dataset results):**
+
+| Model | Accuracy | Macro F1 | ECE ↓ | Note |
+|-------|----------|----------|-------|------|
+| Metadata Only (MLP) | — | — | — | Trained separately |
+| Image Only (Swin-Tiny) | — | — | — | Trained separately |
+| Concat Fusion | — | — | — | Trained separately |
+| **SugarcaneAI (Cross-Attention)** | **—** | **—** | **—** | Full multimodal model |
+
+> Results will be populated after Stage B (Mendeley real images) training on Colab.
 
 ### Research Hypotheses (from Synopsis)
 
-- ✅ Cross-Attention fusion will improve F1 by **≥5%** over vision-only baselines
-- ✅ MC-Dropout will reduce ECE by **≥30%** vs deterministic models  
-- ✅ Knowledge Distillation will achieve **≥40% FLOPs reduction** while maintaining accuracy within 3%
-- ✅ Early-detection sensitivity (Grade 1) target: **>92%**
+- ⏳ Cross-Attention fusion will improve F1 by **≥5%** over vision-only baselines
+- ⏳ MC-Dropout will reduce ECE by **≥30%** vs deterministic models
+- ⏳ Knowledge Distillation will achieve **≥40% FLOPs reduction** within 3% accuracy
+- ⏳ Early-detection sensitivity (Grade 1) target: **>92%**
 
 ---
 
@@ -188,21 +202,23 @@ uv run python scripts/train.py --config configs/obj1_cross_attention.yaml
 
 ---
 
-## 🗃️ Dataset Strategy — 3 Stages
+## 🗃️ Dataset Strategy — 3-Tier Plan
 
-| Stage | Status | Images | Environmental Metadata | Purpose |
-|-------|--------|--------|----------------------|---------|
-| **A — Dummy** | 🔄 Current | `torch.rand(3,224,224)` | Randomly generated values | Test full pipeline immediately |
-| **B — Kaggle Public** | ⏳ Next | Real leaf images (Kaggle) | Still synthetic/fake | Validate visual encoder quality |
-| **C — Real Field** | ⏳ Future (Obj 3) | Maharashtra field photos | Real DHT22 sensor readings | Final research results |
+| Stage | Status | Images | Metadata | Purpose |
+|-------|--------|--------|----------|---------|
+| **A — Synthetic** | ✅ Done (Phases 1–8) | `torch.rand()` tensors | Random floats | Proved full pipeline works |
+| **B — Mendeley Public** | ⏳ Next step | Real leaf photos | Synthetic (weather API later) | Train & validate visual encoder |
+| **C — Real Field** | ⏳ Objective 3 | Maharashtra field photos | DHT22 + IMD API | Final paper results |
 
-### Stage B Datasets (Kaggle / Mendeley)
-| Dataset | Images | Download |
-|---------|--------|----------|
-| Sugarcane Leaf Disease — Daphal & Koli | 2,569 (Maharashtra) | [Mendeley](https://data.mendeley.com/datasets/9424skmnrk/1) |
-| Sugarcane Leaf Dataset — Thite et al. | 6,748 (9 classes) | [Mendeley](https://data.mendeley.com/datasets/355y629ynj/1) |
+### Stage B Datasets (Priority Order)
 
-> **Stage B note:** Public datasets don't include weather data. Environmental metadata will remain synthetic until Stage C (your own field collection with DHT22 sensors).
+| Priority | Dataset | Images | Download | Why |
+|----------|---------|--------|----------|-----|
+| **1st** | Thite et al. | 6,748 | [Mendeley](https://data.mendeley.com/datasets/355y629ynj/1) | Most classes, real field variability |
+| **2nd** | S2RMCMD | ~16 diseases | [Mendeley](https://data.mendeley.com/datasets/rt8sv9t445) | Environmental annotations included |
+| **3rd** | Daphal & Koli | 2,569 | [Mendeley](https://data.mendeley.com/datasets/9424skmnrk/1) | Maharashtra-specific (your region) |
+
+> **Stage B workflow:** Download → extract to `data/raw/` → update `SugarcaneDataset(synthetic=False, images_dir=...)` → retrain on Colab GPU. Environmental metadata stays synthetic until Stage C.
 
 ---
 

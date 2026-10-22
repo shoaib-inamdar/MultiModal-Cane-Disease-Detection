@@ -67,3 +67,5 @@ logs/
 *.docx
 *.pdf
 synopsis_images/
+
+*.pyc
