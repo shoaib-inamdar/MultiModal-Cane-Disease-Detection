@@ -72,7 +72,6 @@ class SugarcaneDataset(Dataset):
         else:
             self.labels = all_labels[n_train + n_val :]
 
-
     def _setup_real(self, images_dir: str, metadata_csv):
         """
         Walk images_dir and collect image paths + integer labels.
@@ -89,6 +88,11 @@ class SugarcaneDataset(Dataset):
         Metadata: remains synthetic for Stage B (no paired sensor CSV yet).
         When Stage C real sensor CSVs are available, pass metadata_csv
         and replace _generate_synthetic_metadata() with a CSV lookup.
+
+        Note: rglob() is used instead of iterdir() so images are found
+        regardless of nesting depth. This handles the common case where
+        each class zip extracts into a same-named subfolder, e.g.:
+            images_dir/Grassy shoot/Grassy shoot/image001.jpg
         """
         root = Path(images_dir)
         all_paths: list[Path] = []
@@ -98,17 +102,18 @@ class SugarcaneDataset(Dataset):
             class_dir = root / folder_name
             if not class_dir.exists():
                 continue
-            for img_path in sorted(class_dir.iterdir()):
-                if img_path.suffix in IMAGE_EXTENSIONS:
-                    all_paths.append(img_path)
-                    all_labels.append(class_idx)
+            # rglob finds images at any depth inside the class folder
+            found = sorted(
+                p for p in class_dir.rglob("*") if p.suffix in IMAGE_EXTENSIONS
+            )
+            all_paths.extend(found)
+            all_labels.extend([class_idx] * len(found))
 
         if len(all_paths) == 0:
             raise FileNotFoundError(
                 f"No images found in {images_dir}. "
                 f"Expected sub-folders: {list(FOLDER_TO_IDX.keys())}"
             )
-
 
         rng = np.random.RandomState(42)
         indices = rng.permutation(len(all_paths))
@@ -138,7 +143,6 @@ class SugarcaneDataset(Dataset):
                 ),
             ]
         )
-
 
     def __len__(self) -> int:
         return self.length
