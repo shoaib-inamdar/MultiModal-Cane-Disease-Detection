@@ -75,12 +75,13 @@ def test_metadata_range():
 
 def test_dataloader_batch():
     config = load_config(CONFIG_PATH)
+    batch_size = config["data"]["batch_size"]
 
     loaders = get_dataloaders(config)
 
     batch = next(iter(loaders["train"]))
-    assert batch["image"].shape == torch.Size([16, 3, 224, 224])
-    assert batch["metadata"].shape == torch.Size([16, 4])
-    assert batch["label"].shape == torch.Size([16])
+    assert batch["image"].shape == torch.Size([batch_size, 3, 224, 224])
+    assert batch["metadata"].shape == torch.Size([batch_size, 4])
+    assert batch["label"].shape == torch.Size([batch_size])
 
     assert batch["label"].dtype == torch.long

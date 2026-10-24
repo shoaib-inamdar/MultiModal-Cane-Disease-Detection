@@ -10,10 +10,10 @@ data:
   class_names: ["Healthy", "Grassy Shoot", "Smut", "Pokkah Boeng"]
   image_size: 224
   metadata_dim: 4          # [Temperature, Humidity, Soil Moisture, Rainfall]
-  batch_size: 16            # Small batch for Colab T4 GPU
+  batch_size: 32            # T4/A100 GPU can handle 32 comfortably
   num_synthetic_samples: 300
-  synthetic: true           # Stage A — dummy dataset
-  synthetic_metadata: true  # Stage A — synthetic metadata
+  synthetic: true           # Stage A -- dummy dataset
+  synthetic_metadata: true  # Stage A -- synthetic metadata
 
 model:
   backbone: "swin_tiny_patch4_window7_224"   # timm model name
@@ -24,15 +24,16 @@ model:
   fusion_dropout: 0.1
 
 training:
-  num_epochs: 20
+  num_epochs: 30            # Increased: scheduler + augmentation benefit from more epochs
   learning_rate: 0.0001
   weight_decay: 0.0001
-  patience: 5               # Early stopping patience
+  patience: 10              # Increased: gives model time to recover after LR drops
 
 colab:
   use_drive: true
   drive_checkpoint_path: "/content/drive/MyDrive/SugarcaneAI/checkpoints"
 
 logging:
-  use_wandb: false          # Set true when you have W&B API key
+  use_wandb: true           # W&B tracking enabled
   project: "sugarcane-ai-obj1"
+  entity: "shoaibinamdar14-none"

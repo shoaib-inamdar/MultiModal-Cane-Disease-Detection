@@ -161,10 +161,16 @@ class SugarcaneDataset(Dataset):
     def _get_real_sample(self, idx: int) -> dict:
         """
         Load a real image from disk.
+
+        If self.transform is set (e.g. augmentation pipeline passed at init),
+        it is applied instead of the default _real_transform.
         Metadata is synthetic for Stage B (no paired sensor CSV yet).
         """
         img = Image.open(self.image_paths[idx]).convert("RGB")
-        image = self._real_transform(img)
+        if self.transform is not None:
+            image = self.transform(img)
+        else:
+            image = self._real_transform(img)
         metadata = self._generate_synthetic_metadata()
         label = torch.tensor(self.labels[idx], dtype=torch.long)
         return {"image": image, "metadata": metadata, "label": label}
