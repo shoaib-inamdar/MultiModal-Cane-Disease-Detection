@@ -24,9 +24,7 @@ class StudentClassifier(nn.Module):
         super().__init__()
 
         # timm API: num_classes=0 removes the head and returns feature vectors
-        self.backbone = timm.create_model(
-            backbone, pretrained=True, num_classes=0
-        )
+        self.backbone = timm.create_model(backbone, pretrained=True, num_classes=0)
 
         self.meta_enc = MetadataEncoder()  # [B, 4] -> [B, 1, 256]
 
