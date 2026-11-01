@@ -36,7 +36,14 @@ num_classes = config["data"]["num_classes"]
 
 model = SugarcaneClassifier(num_classes=num_classes)
 checkpoint = torch.load(CHECKPOINT_PATH, map_location=device, weights_only=True)
-model.load_state_dict(checkpoint["model_state_dict"])
+# save_checkpoint() in trainer.py saves with key 'model'
+# Fallback handles raw state_dict for flexibility
+if isinstance(checkpoint, dict) and "model" in checkpoint:
+    model.load_state_dict(checkpoint["model"])
+elif isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
+    model.load_state_dict(checkpoint["model_state_dict"])
+else:
+    model.load_state_dict(checkpoint)  # raw state_dict
 model = model.to(device)
 model.eval()
 
