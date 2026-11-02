@@ -15,8 +15,7 @@ FOLDER_TO_IDX: dict[str, int] = {
 }
 
 IDX_TO_FOLDER: dict[int, str] = {
-    idx: folder_name
-    for folder_name, idx in FOLDER_TO_IDX.items()
+    idx: folder_name for folder_name, idx in FOLDER_TO_IDX.items()
 }
 
 # Stage B approximate metadata by disease class
@@ -24,28 +23,28 @@ IDX_TO_FOLDER: dict[int, str] = {
 
 DISEASE_CLIMATE = {
     "Healthy Leaves": {
-        "temperature_range": (22, 28),   # °C -- dry cool season
-        "humidity_range":    (50, 70),   # %
-        "rainfall_range":    (3, 50),    # mm
-        "soil_moisture":     (40, 60),   # %
+        "temperature_range": (22, 28),  # °C -- dry cool season
+        "humidity_range": (50, 70),  # %
+        "rainfall_range": (3, 50),  # mm
+        "soil_moisture": (40, 60),  # %
     },
     "Grassy shoot": {
-        "temperature_range": (24, 32),   # °C -- warm
-        "humidity_range":    (70, 90),   # % -- high
-        "rainfall_range":    (100, 300), # mm -- monsoon
-        "soil_moisture":     (60, 80),   # %
+        "temperature_range": (24, 32),  # °C -- warm
+        "humidity_range": (70, 90),  # % -- high
+        "rainfall_range": (100, 300),  # mm -- monsoon
+        "soil_moisture": (60, 80),  # %
     },
     "smut": {
-        "temperature_range": (26, 34),   # °C -- warm dry
-        "humidity_range":    (55, 75),   # % -- moderate
-        "rainfall_range":    (10, 80),   # mm -- drought stress
-        "soil_moisture":     (30, 55),   # %
+        "temperature_range": (26, 34),  # °C -- warm dry
+        "humidity_range": (55, 75),  # % -- moderate
+        "rainfall_range": (10, 80),  # mm -- drought stress
+        "soil_moisture": (30, 55),  # %
     },
     "Pokkah Boeng": {
-        "temperature_range": (25, 33),   # °C -- warm
-        "humidity_range":    (65, 85),   # % -- post-rain
-        "rainfall_range":    (50, 200),  # mm
-        "soil_moisture":     (50, 75),   # %
+        "temperature_range": (25, 33),  # °C -- warm
+        "humidity_range": (65, 85),  # % -- post-rain
+        "rainfall_range": (50, 200),  # mm
+        "soil_moisture": (50, 75),  # %
     },
 }
 
@@ -218,7 +217,7 @@ class SugarcaneDataset(Dataset):
             "image": image,
             "metadata": metadata,
             "label": label,
-            }
+        }
 
     def _get_approximate_metadata(self, class_idx: int) -> torch.Tensor:
         """
@@ -226,12 +225,15 @@ class SugarcaneDataset(Dataset):
         Better than pure random -- gives the model a real learning signal.
         """
         class_name = IDX_TO_FOLDER[class_idx]  # reverse mapping
-        climate = DISEASE_CLIMATE.get(class_name, {
-            "temperature_range": (20, 35),
-            "humidity_range":    (50, 90),
-            "rainfall_range":    (0, 300),
-            "soil_moisture":     (30, 80),
-        })
+        climate = DISEASE_CLIMATE.get(
+            class_name,
+            {
+                "temperature_range": (20, 35),
+                "humidity_range": (50, 90),
+                "rainfall_range": (0, 300),
+                "soil_moisture": (30, 80),
+            },
+        )
 
         t_lo, t_hi = climate["temperature_range"]
         h_lo, h_hi = climate["humidity_range"]
@@ -239,18 +241,21 @@ class SugarcaneDataset(Dataset):
         s_lo, s_hi = climate["soil_moisture"]
 
         # Sample within disease-specific range (adds realism vs pure random)
-        temperature   = random.uniform(t_lo, t_hi)
-        humidity      = random.uniform(h_lo, h_hi)
-        rainfall      = random.uniform(r_lo, r_hi)
+        temperature = random.uniform(t_lo, t_hi)
+        humidity = random.uniform(h_lo, h_hi)
+        rainfall = random.uniform(r_lo, r_hi)
         soil_moisture = random.uniform(s_lo, s_hi)
 
         # Normalise to [0,1] -- same ranges as training
-        return torch.tensor([
-            (temperature   - 15) / 30,
-            (humidity      - 20) / 80,
-            soil_moisture  / 100,
-            rainfall       / 300,
-            ], dtype=torch.float32)
+        return torch.tensor(
+            [
+                (temperature - 15) / 30,
+                (humidity - 20) / 80,
+                soil_moisture / 100,
+                rainfall / 300,
+            ],
+            dtype=torch.float32,
+        )
 
     def _generate_synthetic_metadata(self) -> torch.Tensor:
         temperature = random.uniform(15.0, 45.0) / 50.0
