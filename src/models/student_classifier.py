@@ -44,7 +44,7 @@ class StudentClassifier(nn.Module):
         Returns:
             logits   : [B, num_classes]
         """
-        visual = self.backbone(image)  # [B, 576]
+        visual = self.backbone(image)  # [B, 1024]  (mobilenetv3_small_100 feature dim)
         meta = self.meta_enc(metadata).squeeze(1)  # [B, 256]
-        fused = torch.cat([visual, meta], dim=1)  # [B, 832]
+        fused = torch.cat([visual, meta], dim=1)  # [B, 1280]
         return self.fusion_head(fused)  # [B, num_classes]
