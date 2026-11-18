@@ -62,15 +62,38 @@ config = load_config(CONFIG_PATH)
 
 
 def _load_state(model: nn.Module, path: str) -> nn.Module:
+    """Load a checkpoint into model, handling trainer.py's {'model': ...} wrapper."""
     ckpt = torch.load(path, map_location=device, weights_only=True)
     if isinstance(ckpt, dict) and "model" in ckpt:
-        model.load_state_dict(ckpt["model"])
+        state = ckpt["model"]
     elif isinstance(ckpt, dict) and "model_state_dict" in ckpt:
-        model.load_state_dict(ckpt["model_state_dict"])
+        state = ckpt["model_state_dict"]
     else:
-        model.load_state_dict(ckpt)
+        state = ckpt  # raw state_dict (e.g. image-only baselines saved directly)
+    model.load_state_dict(state)
     model.eval()
     return model.to(device)
+
+
+def _load_image_only(backbone: nn.Module, path: str) -> "_ImageOnlyWrapper":
+    """Load a checkpoint saved from a bare timm model (no wrapper prefix).
+
+    ResNet50 and EfficientNet-B3 were saved as raw state dicts with keys like
+    'layer1.0.conv1.weight', not 'net.layer1.0.conv1.weight'.  Loading into the
+    wrapper directly causes a key-mismatch error, so we load into the inner
+    backbone first and then wrap it.
+    """
+    ckpt = torch.load(path, map_location=device, weights_only=True)
+    if isinstance(ckpt, dict) and "model" in ckpt:
+        state = ckpt["model"]
+    elif isinstance(ckpt, dict) and "model_state_dict" in ckpt:
+        state = ckpt["model_state_dict"]
+    else:
+        state = ckpt
+    backbone.load_state_dict(state)
+    backbone.eval()
+    wrapper = _ImageOnlyWrapper(backbone)
+    return wrapper.to(device)
 
 
 class _ImageOnlyWrapper(nn.Module):
@@ -127,19 +150,19 @@ _student = _load_state(_student, f"{CKPT_DIR}/student_model.pt")
 models["Student\n(MobileNetV3)"] = _student
 model_params["Student\n(MobileNetV3)"] = 1_888_484
 
-# 4. ResNet50
-_resnet = _ImageOnlyWrapper(
-    timm.create_model("resnet50", pretrained=False, num_classes=4)
+# 4. ResNet50 — saved as raw timm state dict (no wrapper prefix)
+_resnet = _load_image_only(
+    timm.create_model("resnet50", pretrained=False, num_classes=4),
+    f"{CKPT_DIR}/resnet50.pt",
 )
-_resnet = _load_state(_resnet, f"{CKPT_DIR}/resnet50.pt")
 models["ResNet50\n(Image-only)"] = _resnet
 model_params["ResNet50\n(Image-only)"] = 23_516_228
 
-# 5. EfficientNet-B3
-_effnet = _ImageOnlyWrapper(
-    timm.create_model("efficientnet_b3", pretrained=False, num_classes=4)
+# 5. EfficientNet-B3 — saved as raw timm state dict (no wrapper prefix)
+_effnet = _load_image_only(
+    timm.create_model("efficientnet_b3", pretrained=False, num_classes=4),
+    f"{CKPT_DIR}/efficientnet_b3.pt",
 )
-_effnet = _load_state(_effnet, f"{CKPT_DIR}/efficientnet_b3.pt")
 models["EfficientNet-B3\n(Image-only)"] = _effnet
 model_params["EfficientNet-B3\n(Image-only)"] = 10_702_380
 
